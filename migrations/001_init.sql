@@ -1,4 +1,4 @@
--- Milestones: a permanent, dated, per-subject timeline of once-ever events.
+-- Milestones: a permanent, dated timeline of once-ever events.
 --
 -- Deliberately NOT a feed and NOT a calendar. Nothing here recurs, nothing
 -- expires, and there is no `retention` block in the manifest — a milestone is
@@ -7,22 +7,29 @@
 -- that repeats seasonally and is worth comparing year over year belongs in
 -- Almanac.
 --
+-- The spine is the MILESTONE, not a person. "We got the keys" and "we planted
+-- the oak" are household milestones that belong to nobody in particular, and
+-- modelling them as a person named "the house" is the shape this schema exists
+-- to avoid. People ATTACH to a milestone, zero or many, through
+-- `milestone_people` — so a first day of school shared by two kids is one row
+-- with two attachments, not two near-duplicate rows.
+--
 -- Migrations are additive only: add 002_*.sql, 003_*.sql for later changes.
 -- Never DROP/RENAME; the runner applies each version exactly once, in order.
 -- This file seeds no rows: app migrations run OUTSIDE the app-db codec, so any
 -- literal inserted here would land in an encrypted column as plaintext.
 
--- Whose timeline this is.
+-- Someone a milestone can be about.
 --
--- A subject is usually a household member, but it must not have to be. The
--- most common milestone in the whole app — a baby's first steps — belongs to
--- someone who has no account, and may not get one for a decade. So `member_id`
--- is optional and `name` always carries the display name. When `member_id` is
--- set the UI should prefer the roster's name and birthdate; when it is empty
--- the columns here are the only source.
-CREATE TABLE IF NOT EXISTS app_milestones__subjects (
+-- A registry of people this app knows about, NOT a timeline owner. Usually a
+-- household member, but it must not have to be: the most common milestone in
+-- the whole app — a baby's first steps — belongs to someone who has no account
+-- and may not get one for a decade. So `member_id` is optional and `name`
+-- always carries the display name. When `member_id` is set the UI prefers the
+-- roster's name; when it is empty the columns here are the only source.
+CREATE TABLE IF NOT EXISTS app_milestones__people (
   id          TEXT NOT NULL PRIMARY KEY,
-  member_id   TEXT NOT NULL DEFAULT '',   -- roster member id, or '' for a subject with no account
+  member_id   TEXT NOT NULL DEFAULT '',   -- roster member id, or '' for someone with no account
                                           -- (plaintext: ends in _id)
   name        TEXT NOT NULL,              -- encrypted; the fallback display name
   birth_date  TEXT NOT NULL DEFAULT '',   -- yyyy-mm-dd, or '' if unknown (plaintext: ends in _date)
@@ -31,19 +38,18 @@ CREATE TABLE IF NOT EXISTS app_milestones__subjects (
                                           -- and in shared spaces — and age-at-the-time is the point.
   icon        TEXT NOT NULL DEFAULT '🌱', -- plaintext (built-in column name)
   visibility  TEXT NOT NULL DEFAULT 'everyone',  -- everyone|private (row policy; plaintext)
-  archived_at TEXT,                       -- set instead of deleting a subject
+  archived_at TEXT,                       -- ISO timestamp, set instead of deleting someone
   created_by  TEXT NOT NULL,              -- member id of the author (plaintext: ends in _by)
   created_at  TEXT NOT NULL,              -- ISO timestamp (plaintext)
   updated_at  TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS app_milestones__subjects_member_idx
-  ON app_milestones__subjects (member_id);
+CREATE INDEX IF NOT EXISTS app_milestones__people_member_idx
+  ON app_milestones__people (member_id);
 
--- One thing that happened, once.
+-- One thing that happened, once. Belongs to the household; people attach below.
 CREATE TABLE IF NOT EXISTS app_milestones__milestones (
   id             TEXT NOT NULL PRIMARY KEY,
-  subject_id     TEXT NOT NULL,           -- FK to subjects.id (plaintext: ends in _id)
   title          TEXT NOT NULL,           -- encrypted; "First steps"
   note           TEXT NOT NULL DEFAULT '',-- encrypted; the story. Empty strings pass through
                                           -- the codec unencrypted, so DEFAULT '' is safe.
@@ -81,10 +87,31 @@ CREATE TABLE IF NOT EXISTS app_milestones__milestones (
   updated_at     TEXT NOT NULL
 );
 
--- The timeline read: one subject, oldest to newest.
-CREATE INDEX IF NOT EXISTS app_milestones__milestones_subject_date_idx
-  ON app_milestones__milestones (subject_id, occurred_date);
-
--- The "on this day" glance, which scans by date across all subjects.
+-- The timeline read, and the "on this day" glance which scans by date.
 CREATE INDEX IF NOT EXISTS app_milestones__milestones_date_idx
   ON app_milestones__milestones (occurred_date);
+
+-- Who a milestone is about: zero rows for a household milestone, one per
+-- person otherwise.
+--
+-- Every column here is plaintext by suffix (_id, _by, _at), deliberately: the
+-- glance and the AI export both JOIN this table, and the hub's row-policy
+-- rewriter fails closed on a governed table reached only through a subquery —
+-- so these have to be joinable at the top level, which encrypted keys are not.
+CREATE TABLE IF NOT EXISTS app_milestones__milestone_people (
+  id           TEXT NOT NULL PRIMARY KEY,
+  milestone_id TEXT NOT NULL,             -- FK to milestones.id
+  person_id    TEXT NOT NULL,             -- FK to people.id
+  written_by   TEXT NOT NULL,             -- member who attached them; the inherit_visibility
+                                          -- policy's writer_column, forced hub-side on INSERT
+  created_at   TEXT NOT NULL
+);
+
+-- One attachment per person per milestone. Safe as a UNIQUE index only because
+-- both columns are plaintext — a uniqueness constraint over an encrypted column
+-- is dead on arrival, since every row encrypts to different bytes.
+CREATE UNIQUE INDEX IF NOT EXISTS app_milestones__milestone_people_pair_idx
+  ON app_milestones__milestone_people (milestone_id, person_id);
+
+CREATE INDEX IF NOT EXISTS app_milestones__milestone_people_person_idx
+  ON app_milestones__milestone_people (person_id);

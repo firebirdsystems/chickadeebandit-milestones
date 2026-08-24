@@ -157,57 +157,221 @@ export function canDelete(_row, me) {
   return isAdult(me);
 }
 
-/** Subjects the picker should offer: never the archived ones, name-ordered. */
-export function activeSubjects(subjects) {
-  return (subjects ?? [])
+/** People the picker should offer: never the archived ones, name-ordered. */
+export function activePeople(people) {
+  return (people ?? [])
     .filter((s) => !s.archived_at)
     .slice()
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 }
 
-/** Archived subjects, name-ordered for the adult restore control. */
-export function archivedSubjects(subjects) {
-  return (subjects ?? [])
+/** Archived people, name-ordered for the adult restore control. */
+export function archivedPeople(people) {
+  return (people ?? [])
     .filter((s) => Boolean(s.archived_at))
     .slice()
     .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 }
 
-/** Keeps a selection valid when another session archives its subject. */
-export function normalizeSelectedSubjectId(selectedId, subjects) {
-  if (selectedId === "all") return "all";
-  const active = activeSubjects(subjects);
-  if (active.some((s) => s.id === selectedId)) return selectedId;
-  return active.length === 1 ? active[0].id : "all";
-}
-
-/** Milestones whose subject still belongs on user-visible surfaces. */
-export function milestonesForActiveSubjects(milestones, subjects) {
-  const activeIds = new Set(activeSubjects(subjects).map((s) => s.id));
-  return (milestones ?? []).filter((m) => activeIds.has(m.subject_id));
-}
-
-/** Newly uploaded files that are not durable until their form saves. */
-export function unsavedFileIds(files) {
-  return (files ?? []).filter((f) => f.isNew).map((f) => f.id).filter(Boolean);
+/**
+ * Keeps a chip selection valid when another session archives its person.
+ *
+ * "all" and "household" are not people, so they always survive: "household" is
+ * the filter for milestones that are about nobody in particular, and unlike a
+ * person it can never be archived out from under the selection.
+ */
+export function normalizeSelectedPersonId(selectedId, people) {
+  if (selectedId === "all" || selectedId === "household") return selectedId;
+  return activePeople(people).some((s) => s.id === selectedId) ? selectedId : "all";
 }
 
 /**
- * Resolves a subject's display name and birth date, preferring the live roster
- * when the subject is linked to a member.
+ * Groups attachment rows by milestone.
+ *
+ * The join table is the only place "who this is about" lives, so almost every
+ * read wants it in this shape. Person ids are deduplicated defensively: the
+ * unique index on (milestone_id, person_id) makes a repeat impossible in the
+ * database, but two pages of a mutable cursor can hand the same row over twice.
+ */
+export function linksByMilestone(links) {
+  const index = new Map();
+  for (const link of links ?? []) {
+    const list = index.get(link.milestone_id);
+    if (list) { if (!list.includes(link.person_id)) list.push(link.person_id); }
+    else index.set(link.milestone_id, [link.person_id]);
+  }
+  return index;
+}
+
+/** Person ids attached to a milestone, in the order the index holds them. */
+export function personIdsFor(index, milestoneId) {
+  return index.get(milestoneId) ?? [];
+}
+
+/**
+ * Whether a milestone belongs on user-visible surfaces.
+ *
+ * Zero attachments means a household milestone — "we got the keys" — which is
+ * always shown. A milestone that IS about someone is hidden once every person
+ * it names has been archived, which is what archiving a person is for. Mirrored
+ * by the glance's `HAVING COUNT(mp.id) = 0 OR COUNT(p.id) > 0`.
+ */
+export function isVisibleMilestone(milestone, index, people) {
+  const ids = personIdsFor(index, milestone.id);
+  if (!ids.length) return true;
+  const active = new Set(activePeople(people).map((s) => s.id));
+  return ids.some((id) => active.has(id));
+}
+
+/** Milestones on user-visible surfaces, given the attachment index. */
+export function visibleMilestonesFor(milestones, index, people) {
+  return (milestones ?? []).filter((m) => isVisibleMilestone(m, index, people));
+}
+
+/** Narrows a timeline to one chip: everyone, the household-only ones, or one person. */
+export function filterByPerson(milestones, index, selection) {
+  if (selection === "all") return milestones ?? [];
+  if (selection === "household") {
+    return (milestones ?? []).filter((m) => personIdsFor(index, m.id).length === 0);
+  }
+  return (milestones ?? []).filter((m) => personIdsFor(index, m.id).includes(selection));
+}
+
+/**
+ * The people a milestone's form may tick: everyone active, plus anyone archived
+ * who is ALREADY attached to this milestone.
+ *
+ * The archived ones matter. If the form only offered active people, an archived
+ * attachment would have no checkbox, submitting would read it as unticked, and
+ * editing an otherwise-visible shared milestone would permanently drop the
+ * association — restoring the person later would not bring it back, because the
+ * join row would be gone. So they are offered, pre-ticked and labelled, and can
+ * only leave by being explicitly unticked.
+ */
+export function attachablePeople(people, attachedIds = []) {
+  const attached = new Set(attachedIds);
+  return (people ?? [])
+    .filter((s) => !s.archived_at || attached.has(s.id))
+    .slice()
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .map((s) => ({ person: s, archived: Boolean(s.archived_at) }));
+}
+
+/**
+ * What has to change in the join table to make a milestone's attachments match
+ * the form's selection.
+ *
+ * Returned as rows-to-delete rather than ids-to-delete because the caller needs
+ * each row's `written_by` — see blockedRemovals.
+ */
+export function attachmentDelta(currentLinks, nextPersonIds) {
+  const next = new Set(nextPersonIds ?? []);
+  const current = currentLinks ?? [];
+  const have = new Set(current.map((l) => l.person_id));
+  return {
+    add: [...next].filter((id) => !have.has(id)),
+    remove: current.filter((l) => !next.has(l.person_id)),
+  };
+}
+
+/** Splits a list into consecutive sub-arrays of at most `size` items. */
+export function chunk(values, size) {
+  if (size < 1) throw new Error("chunk size must be at least 1");
+  const out = [];
+  for (let i = 0; i < (values ?? []).length; i += size) out.push(values.slice(i, i + size));
+  return out;
+}
+
+/**
+ * Groups an attachment delta into statement-sized pieces.
+ *
+ * D1 rejects a prepared statement carrying more than ~100 bound parameters, and
+ * this app can genuinely reach that: `people` is capped at 200 rows and every
+ * one of them may be attached to a single milestone. A removal costs one
+ * parameter per row, an insert `columnsPerRow` of them — so the two are grouped
+ * differently, and neither may be built from an unbounded list.
+ */
+export function attachmentBatchPlan(add, remove, maxParams, columnsPerRow) {
+  return {
+    removalGroups: chunk(remove ?? [], maxParams),
+    insertGroups: chunk(add ?? [], Math.floor(maxParams / columnsPerRow)),
+  };
+}
+
+/**
+ * Attachment rows the caller's row policy will refuse to delete.
+ *
+ * `milestone_people` is an inherit_visibility table, so a non-adult may only
+ * delete rows whose `written_by` is their own — while `canEdit` lets the author
+ * of a milestone edit it whatever an adult has since done to its attachments.
+ * The two rules disagree in exactly one case: an adult changed who a child's
+ * milestone is about, and the child then edits it. Without this check the
+ * DELETE would silently match nothing and the milestone would keep a person the
+ * form had just removed, so the caller pre-flights and refuses instead.
+ */
+export function blockedRemovals(removeRows, me) {
+  if (isAdult(me)) return [];
+  return (removeRows ?? []).filter((l) => l.written_by !== me?.id);
+}
+
+/**
+ * Resolves a person's display name and birth date, preferring the live roster
+ * when they are linked to a member.
  *
  * The roster is authoritative for members who are on it — a rename should not
  * leave a stale name on the timeline. But `birthdate` is stripped from
  * `family.members` for guests and inside shared spaces, so the locally stored
  * `birth_date` is the fallback that keeps ages working there.
  */
-export function resolveSubject(subject, members = []) {
-  if (!subject) return { name: "", birthDate: "" };
-  const member = subject.member_id ? members.find((m) => m.id === subject.member_id) : null;
+export function resolvePerson(person, members = []) {
+  if (!person) return { name: "", birthDate: "" };
+  const member = person.member_id ? members.find((m) => m.id === person.member_id) : null;
   return {
-    name: member?.name || subject.name || "",
-    birthDate: subject.birth_date || member?.birthdate || "",
+    name: member?.name || person.name || "",
+    birthDate: person.birth_date || member?.birthdate || "",
   };
+}
+
+/**
+ * The people a milestone names, resolved and age-stamped, archived ones dropped.
+ *
+ * Age is per person, because that is the point of attaching more than one: two
+ * siblings share a first day of school and were not the same age on it.
+ */
+export function peopleOnMilestone(milestone, index, people, members = []) {
+  const byId = new Map((people ?? []).map((s) => [s.id, s]));
+  return personIdsFor(index, milestone.id)
+    .map((id) => byId.get(id))
+    .filter((person) => person && !person.archived_at)
+    .map((person) => {
+      const info = resolvePerson(person, members);
+      return {
+        id: person.id,
+        name: info.name,
+        age: ageAt(info.birthDate, milestone.occurred_date, milestone.date_precision),
+      };
+    })
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+/**
+ * The "who, and how old" half of a timeline entry's meta line.
+ *
+ * One person reads "Rowan, 4 years old". Several read as a list, each with
+ * their own age, because a shared age would be wrong for all but one of them.
+ * Nobody reads as "" — a household milestone says nothing rather than claiming
+ * to be about the household, which the surrounding date already implies.
+ */
+export function describePeople(entries) {
+  return (entries ?? [])
+    .map((e) => (e.age ? `${e.name}, ${e.age}` : e.name))
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** Newly uploaded files that are not durable until their form saves. */
+export function unsavedFileIds(files) {
+  return (files ?? []).filter((f) => f.isNew).map((f) => f.id).filter(Boolean);
 }
 
 /** Timeline order: oldest first, so a life reads top to bottom. */
@@ -261,6 +425,6 @@ export function onThisDay(milestones, today) {
 }
 
 /** Fields in-app search matches against (see hub-sdk `searchMatch`). */
-export function searchableFields(milestone, subjectName = "") {
-  return [milestone.title, milestone.note, subjectName];
+export function searchableFields(milestone, personNames = []) {
+  return [milestone.title, milestone.note, ...personNames];
 }

@@ -43,18 +43,42 @@ describe("manifest.json", () => {
     expect(manifest.data_access.reads).toContain("family.preferences");
   });
 
-  it("glance only surfaces past milestones for active subjects", () => {
-    expect(manifest.glance.source.query).toContain("s.archived_at IS NULL");
+  it("glance only surfaces past milestones", () => {
+    expect(manifest.glance.source.query).toContain("p.archived_at IS NULL");
     expect(manifest.glance.source.query).toContain("m.occurred_date < :today");
   });
 
-  it("glance never shows a stale stored name for a roster-linked subject", () => {
-    expect(manifest.glance.source.query).toContain("s.member_id = ''");
+  it("glance keeps household milestones and drops fully-archived ones", () => {
+    // Mirrors isVisibleMilestone: no attachments at all is a household
+    // milestone and always shows; attachments that are all archived do not.
+    expect(manifest.glance.source.query).toContain("HAVING COUNT(mp.id) = 0 OR COUNT(p.id) > 0");
+    expect(manifest.glance.source.query).toContain("'Our household'");
+  });
+
+  it("glance never shows a stale stored name for a roster-linked person", () => {
+    expect(manifest.glance.source.query).toContain("MAX(p.member_id) <> ''");
     expect(manifest.glance.source.query).toContain("Household member");
   });
 
-  it("only adults may archive or restore subjects", () => {
-    expect(manifest.row_policies.subjects.column_write_acls.archived_at).toEqual({
+  it("glance never concatenates encrypted names", () => {
+    // decryptAppRows decrypts by VALUE, not by column: a group_concat of two
+    // encrypted names produces a string that is no longer a single ciphertext,
+    // so the card would render raw bytes. Every branch of the subtitle is a
+    // literal or one whole column value.
+    expect(manifest.glance.source.query).not.toMatch(/group_concat/i);
+    expect(manifest.glance.source.query).not.toMatch(/\|\|/);
+  });
+
+  it("joins every governed table at the top level", () => {
+    // The row-policy rewriter fails closed on a governed table reached only
+    // through a subquery or CTE, so the glance may not resolve names that way.
+    for (const table of ["app_milestones__milestone_people", "app_milestones__people"]) {
+      expect(manifest.glance.source.query).toContain(`LEFT JOIN ${table}`);
+    }
+  });
+
+  it("only adults may archive or restore someone", () => {
+    expect(manifest.row_policies.people.column_write_acls.archived_at).toEqual({
       writable_by: ["adult"],
     });
   });
@@ -63,21 +87,58 @@ describe("manifest.json", () => {
     expect(manifest.update_file_list_columns).toEqual({ milestones: ["file_ids"] });
   });
 
-  it("atomically rejects milestone writes for archived subjects", () => {
-    expect(manifest.row_policies.milestones.frozen_when).toEqual({
-      parent_table: "subjects",
-      fk_column: "subject_id",
-      status_column: "archived_at",
-      locked_values: ["archived"],
+  it("governs the join table by its milestone, not by its own visibility", () => {
+    expect(manifest.row_policies.milestone_people).toEqual({
+      kind: "inherit_visibility",
+      parent_table: "milestones",
+      fk_column: "milestone_id",
+      writer_column: "written_by",
+      max_rows: 20000,
     });
-    const sql = readFileSync(join(__dirname, "../migrations/002_normalize_archive_state.sql"), "utf-8");
-    expect(sql).toContain("SET archived_at = 'archived'");
   });
 
-  it("AI exports identify linked subjects without returning their stale cached name", () => {
+  it("takes a milestone's attachments with it, from either side", () => {
+    // Both directions matter: deleting a milestone must not strand its
+    // attachments, and neither must deleting a person.
+    expect(manifest.delete_cascades.milestones).toEqual([
+      { table: "milestone_people", foreign_key: "milestone_id" },
+    ]);
+    expect(manifest.delete_cascades.people).toEqual([
+      { table: "milestone_people", foreign_key: "person_id" },
+    ]);
+  });
+
+  it("attributes the member who attached someone", () => {
+    expect(manifest.member_references.milestone_people).toEqual([
+      { column: "written_by", on_removed: "keep" },
+    ]);
+  });
+
+  it("a milestone belongs to the household, not to one person", () => {
+    // The schema has no subject_id: people attach through the join table, so
+    // "we got the keys" needs no stand-in person to hang off.
+    const sql = readFileSync(join(__dirname, "../migrations/001_init.sql"), "utf-8");
+    expect(sql).not.toContain("subject_id");
+    expect(sql).toContain("CREATE TABLE IF NOT EXISTS app_milestones__milestone_people");
+  });
+
+  it("keeps the join table's keys plaintext so they can be joined", () => {
+    const sql = readFileSync(join(__dirname, "../migrations/001_init.sql"), "utf-8");
+    const table = sql.slice(sql.indexOf("app_milestones__milestone_people ("));
+    const columns = table.slice(0, table.indexOf(");")).match(/^\s{2}(\w+)/gm).map((c) => c.trim());
+    // Encrypted keys cannot be compared in SQL, and the UNIQUE index below
+    // would be dead on arrival over them.
+    for (const column of columns) {
+      expect(column, `${column} must be plaintext by suffix`).toMatch(/(_id|_by|_at)$|^id$/);
+    }
+  });
+
+  it("AI exports identify attached people without returning a stale cached name", () => {
     const sql = readFileSync(join(__dirname, "../src/queries/milestone_timeline.sql"), "utf-8");
-    expect(sql).toContain("s.member_id AS subject_member_id");
-    expect(sql).toContain("s.member_id = '' THEN s.name ELSE NULL");
+    expect(sql).toContain("p.member_id AS person_member_id");
+    expect(sql).toContain("p.member_id = '' THEN p.name ELSE NULL");
+    // LEFT JOIN, so a household milestone still exports.
+    expect(sql).toContain("LEFT JOIN app_milestones__milestone_people");
   });
 });
 

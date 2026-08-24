@@ -60,7 +60,7 @@
       border: 0; font-size: .76rem; font-weight: 700; cursor: pointer; font-family: inherit; }
     .btn-quiet-danger:hover { background: var(--red-soft); color: var(--red); }
 
-    /* Subject chips */
+    /* Person + household chips */
     .subjects { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .subject-control { display: inline-flex; align-items: center; gap: 2px; }
     .archived-subjects { margin: -4px 0 12px; color: var(--muted); }
@@ -131,6 +131,12 @@
     .modal h2 { margin-bottom: 12px; font-size: 1.05rem; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
     .hint { font-size: .76rem; color: var(--muted); }
+    /* "Who is this about?" — checkboxes, because the answer can be nobody. */
+    .who { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 2px 0; }
+    .who-option { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+      font: inherit; font-size: .9rem; text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 400; }
+    .who-option input { width: auto; min-width: 0; }
+    #p-toggle { justify-self: start; text-align: left; }
   </style>
   <base href="/run/milestones/">
 </head>
@@ -142,10 +148,12 @@
 <script type="module">
 import { esc, hubConfirm, hubAlert, createFilesHelper, searchMatch } from "/hub-sdk.js";
 import {
-  CATEGORIES, categoryIcon, canonicalDate, formatOccurred, ageAt,
-  canEdit as _canEdit, canDelete as _canDelete, activeSubjects, archivedSubjects,
-  normalizeSelectedSubjectId, milestonesForActiveSubjects,
-  unsavedFileIds, resolveSubject,
+  CATEGORIES, categoryIcon, canonicalDate, formatOccurred,
+  canEdit as _canEdit, canDelete as _canDelete, activePeople, archivedPeople,
+  normalizeSelectedPersonId, visibleMilestonesFor, filterByPerson,
+  linksByMilestone, personIdsFor, attachmentDelta, blockedRemovals,
+  peopleOnMilestone, describePeople,
+  attachablePeople, attachmentBatchPlan, chunk, unsavedFileIds, resolvePerson,
   sortTimeline, latestTimelinePage, timelinePageFromDescending, mergeTimelineRows,
   onThisDay, searchableFields, todayStr,
 } from "./logic.js";
@@ -165,12 +173,27 @@ const ME         = window.__CURRENT_MEMBER ?? null;
 const files = createFilesHelper(FILES);
 const TIMELINE_PAGE_SIZE = 100;
 
+/**
+ * D1 rejects a prepared statement carrying more than 100 bound parameters, so
+ * every `IN (?, ?, …)` and every multi-row `VALUES` built from a runtime-sized
+ * list has to be split. Kept below 100 for headroom, matching the hub's own
+ * D1_MAX_IN_PARAMS. This app can genuinely reach it: `people` is capped at 200
+ * rows, and every one of them may be attached to a single milestone.
+ */
+const MAX_SQL_PARAMS = 90;
+/** Bound parameters per attachment row — id, milestone_id, person_id, written_by, created_at. */
+const ATTACHMENT_COLUMNS = 5;
+
+
+
 // --- App state ---------------------------------------------------------------
 let members = [];
 let memberById = new Map();
 let me = null;
 let householdTimeZone = "";
-let subjects = [];
+let people = [];
+let links = [];          // app_milestones__milestone_people rows for the loaded milestones
+let linkIndex = new Map();
 let milestones = [];
 let anniversaryMilestones = [];
 let timelineCursor = null;
@@ -178,7 +201,7 @@ let hasEarlierMilestones = false;
 let earlierLoadPromise = null;
 let searchLoading = false;
 let ready = false;
-let selectedSubjectId = "all";
+let selectedPersonId = "all";
 let searchQ = "";
 let timelineLimit = TIMELINE_PAGE_SIZE;
 let error = "";
@@ -191,8 +214,10 @@ function nowIso() { return new Date().toISOString(); }
 function canEdit(row) { return _canEdit(row, me); }
 function canDelete(row) { return _canDelete(row, me); }
 function canArchive(row) { return Boolean(row) && canDelete(row); }
-function subjectById(id) { return subjects.find((s) => s.id === id) ?? null; }
-function subjectInfo(id) { return resolveSubject(subjectById(id), members); }
+function personById(id) { return people.find((s) => s.id === id) ?? null; }
+function personInfo(id) { return resolvePerson(personById(id), members); }
+function attachedTo(m) { return peopleOnMilestone(m, linkIndex, people, members); }
+function reindexLinks() { linkIndex = linksByMilestone(links); }
 function syncAnniversaryRow(row) {
   const today = todayStr(new Date(), householdTimeZone);
   anniversaryMilestones = onThisDay(mergeTimelineRows(anniversaryMilestones, [row]), today);
@@ -208,6 +233,45 @@ async function db(sql, params = []) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.error) throw new Error(json.error || `Database request failed: ${res.status}`);
   return json;
+}
+
+/**
+ * Several statements as ONE atomic D1 transaction — all of them commit, or none.
+ *
+ * The hub's `/api/db` batch form is the only atomicity an app gets, and a
+ * milestone and its attachments CANNOT share one, for two independent reasons:
+ *
+ *  - Row policies for every statement in a batch are resolved against the
+ *    COMMITTED snapshot, before any of them run. `milestone_people` is
+ *    inherit_visibility, so its INSERT asks whether the parent milestone is
+ *    visible — and a milestone inserted earlier in the same batch is not there
+ *    yet. The batch is refused with "Referenced milestones (column
+ *    milestone_id) is not visible to this member". Verified, not assumed.
+ *  - `milestones` declares update_file_list_columns and delete_cascades, and
+ *    the batch form REJECTS an UPDATE or DELETE of such a table outright: it
+ *    cannot resolve the per-statement pre-image the photo reclaim and the
+ *    cascade need.
+ *
+ * So the milestone is always its own statement, and the attachments are their
+ * own atomic batch. What the app owes in return is convergence: see
+ * saveMilestone, where a failed attachment write leaves a save that a retry
+ * completes rather than duplicates.
+ *
+ * A batch may also contain only ONE insert per capped table (a table with
+ * `max_rows`), which is why attachments are added as a single multi-row INSERT
+ * rather than one statement each.
+ */
+async function dbBatch(statements) {
+  if (!statements.length) return [];
+  if (!DB) return statements.map(() => ({ rows: [], changed: 1 }));
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ statements }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new Error(json.error || `Database request failed: ${res.status}`);
+  return json.results ?? [];
 }
 
 // --- Loading -----------------------------------------------------------------
@@ -255,12 +319,43 @@ async function fetchMilestonePage(cursor = null) {
   return timelinePageFromDescending(result.rows ?? [], TIMELINE_PAGE_SIZE);
 }
 
+/**
+ * Attachment rows for a set of milestones.
+ *
+ * Fetched per page rather than wholesale: the join table is bounded at 20,000
+ * rows, and a household that has been recording for a decade should not pay for
+ * all of them to render one screen. Chunked because D1 binds one parameter per
+ * id and a page is 100 milestones — more than a single statement may carry.
+ */
+async function fetchLinksFor(milestoneIds) {
+  const ids = [...new Set(milestoneIds)].filter(Boolean);
+  if (!DB || !ids.length) return [];
+  const out = [];
+  for (const group of chunk(ids, MAX_SQL_PARAMS)) {
+    const result = await db(
+      `SELECT * FROM app_milestones__milestone_people WHERE milestone_id IN (${group.map(() => "?").join(", ")})`,
+      group,
+    );
+    out.push(...(result.rows ?? []));
+  }
+  return out;
+}
+
+/** Merges attachment rows by id, so re-fetching a page never doubles them. */
+function mergeLinks(incoming) {
+  const byId = new Map(links.map((l) => [l.id, l]));
+  for (const link of incoming) byId.set(link.id, link);
+  links = [...byId.values()];
+  reindexLinks();
+}
+
 async function loadEarlierMilestones() {
   if (!hasEarlierMilestones || !timelineCursor) return;
   if (earlierLoadPromise) return earlierLoadPromise;
   earlierLoadPromise = (async () => {
     const page = await fetchMilestonePage(timelineCursor);
     milestones = mergeTimelineRows(milestones, page.items);
+    mergeLinks(await fetchLinksFor(page.items.map((m) => m.id)));
     timelineCursor = page.cursor;
     hasEarlierMilestones = page.hasEarlier;
   })();
@@ -291,33 +386,45 @@ async function loadAnniversaryMilestones() {
 async function loadData() {
   if (!DB) {
     // Demo-mode fallback so the app renders with no hub attached.
-    subjects = [
-      { id: "demo-s1", member_id: "demo-2", name: "Rowan", birth_date: "2019-04-02", icon: "🌱",
+    people = [
+      { id: "demo-p1", member_id: "demo-2", name: "Rowan", birth_date: "2019-04-02", icon: "🌱",
         visibility: "everyone", archived_at: null, created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
     ];
     milestones = [
-      { id: "demo-m1", subject_id: "demo-s1", title: "First steps", note: "Down the hallway, straight at the dog.",
+      { id: "demo-m1", title: "First steps", note: "Down the hallway, straight at the dog.",
         category: "first", occurred_date: "2020-03-17", date_precision: "day", file_ids: "[]",
         visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
-      { id: "demo-m2", subject_id: "demo-s1", title: "First day of school", note: "",
+      { id: "demo-m2", title: "First day of school", note: "",
         category: "school", occurred_date: "2024-09-03", date_precision: "day", file_ids: "[]",
         visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+      { id: "demo-m3", title: "We got the keys", note: "A household milestone — about nobody in particular.",
+        category: "home", occurred_date: "2018-06-21", date_precision: "day", file_ids: "[]",
+        visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
     ];
+    links = [
+      { id: "demo-l1", milestone_id: "demo-m1", person_id: "demo-p1", written_by: "demo-1", created_at: nowIso() },
+      { id: "demo-l2", milestone_id: "demo-m2", person_id: "demo-p1", written_by: "demo-1", created_at: nowIso() },
+    ];
+    reindexLinks();
     anniversaryMilestones = milestones;
     timelineCursor = null;
     hasEarlierMilestones = false;
     return;
   }
   const [s, page, anniversaries] = await Promise.all([
-    db("SELECT * FROM app_milestones__subjects ORDER BY created_at"),
+    db("SELECT * FROM app_milestones__people ORDER BY created_at"),
     fetchMilestonePage(),
     loadAnniversaryMilestones(),
   ]);
-  subjects = s.rows;
+  people = s.rows;
   milestones = page.items;
   timelineCursor = page.cursor;
   hasEarlierMilestones = page.hasEarlier;
   anniversaryMilestones = anniversaries;
+  // One round-trip for both sets: an anniversary row is usually already on the
+  // first page, and fetchLinksFor de-duplicates the ids either way.
+  links = await fetchLinksFor([...page.items, ...anniversaries].map((m) => m.id));
+  reindexLinks();
 }
 
 async function refresh() {
@@ -327,14 +434,16 @@ async function refresh() {
   try {
     await loadMembers();
     await loadData();
-    selectedSubjectId = normalizeSelectedSubjectId(selectedSubjectId, subjects);
+    selectedPersonId = normalizeSelectedPersonId(selectedPersonId, people);
     timelineLimit = TIMELINE_PAGE_SIZE;
     ready = true;
   } catch (e) {
     error = e.message;
     members = [];
     memberById = new Map();
-    subjects = [];
+    people = [];
+    links = [];
+    linkIndex = new Map();
     milestones = [];
     anniversaryMilestones = [];
     householdTimeZone = "";
@@ -347,33 +456,42 @@ function requireSingleChange(result, conflictMessage) {
   if (DB && result.changed !== 1) throw new Error(conflictMessage);
 }
 
-async function requireActiveSubject(subjectId) {
+async function requireActivePeople(personIds) {
+  if (!personIds.length) return;
   if (!DB) {
-    const subject = subjectById(subjectId);
-    if (!subject || subject.archived_at) throw new Error("That person is no longer active. Refresh and choose someone else.");
+    for (const id of personIds) {
+      const person = personById(id);
+      if (!person || person.archived_at) throw new Error("Someone you chose is no longer active. Refresh and choose again.");
+    }
     return;
   }
-  const result = await db(
-    "SELECT id FROM app_milestones__subjects WHERE id = ? AND archived_at IS NULL LIMIT 1",
-    [subjectId],
-  );
-  if (!result.rows?.length) {
-    throw new Error("That person was archived or changed in another session. Refresh and choose someone else.");
+  // Chunked: a milestone may name every one of the 200 people the app allows,
+  // which is well past what one statement can bind.
+  let found = 0;
+  for (const group of chunk(personIds, MAX_SQL_PARAMS)) {
+    const result = await db(
+      `SELECT id FROM app_milestones__people WHERE archived_at IS NULL AND id IN (${group.map(() => "?").join(", ")})`,
+      group,
+    );
+    found += (result.rows ?? []).length;
+  }
+  if (found !== personIds.length) {
+    throw new Error("Someone you chose was archived or changed in another session. Refresh and choose again.");
   }
 }
 
-async function saveSubject(fields, existingId) {
+async function savePerson(fields, existingId) {
   const now = nowIso();
   if (existingId) {
-    const existing = subjectById(existingId);
+    const existing = personById(existingId);
     if (!canEdit(existing)) throw new Error("You cannot edit this person.");
     const result = await db(
-      "UPDATE app_milestones__subjects SET member_id = ?, name = ?, birth_date = ?, icon = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
+      "UPDATE app_milestones__people SET member_id = ?, name = ?, birth_date = ?, icon = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
       [fields.member_id, fields.name, fields.birth_date, fields.icon, now, existingId, existing.updated_at],
     );
     requireSingleChange(result, "This person changed in another session. Refresh before saving your changes.");
-    const i = subjects.findIndex((s) => s.id === existingId);
-    if (i !== -1) subjects[i] = { ...subjects[i], ...fields, updated_at: now };
+    const i = people.findIndex((s) => s.id === existingId);
+    if (i !== -1) people[i] = { ...people[i], ...fields, updated_at: now };
     return existingId;
   }
   const row = {
@@ -382,22 +500,22 @@ async function saveSubject(fields, existingId) {
     archived_at: null, created_by: me.id, created_at: now, updated_at: now,
   };
   await db(
-    `INSERT INTO app_milestones__subjects
+    `INSERT INTO app_milestones__people
        (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [row.id, row.member_id, row.name, row.birth_date, row.icon, row.visibility, row.created_by, row.created_at, row.updated_at],
   );
-  subjects = [...subjects, row];
+  people = [...people, row];
   return row.id;
 }
 
-async function archiveSubject(id) {
-  const row = subjectById(id);
+async function archivePerson(id) {
+  const row = personById(id);
   if (!row) return;
   if (!canArchive(row)) { error = "Only adults can archive someone."; return render(); }
   const ok = await hubConfirm({
-    message: `Archive ${resolveSubject(row, members).name || "this person"}?`,
-    description: "Their milestones will be kept, but hidden from the app and its anniversary surfaces.",
+    message: `Archive ${resolvePerson(row, members).name || "this person"}?`,
+    description: "Milestones about them are kept, but hidden from the app and its anniversary surfaces. Household milestones stay.",
     confirmLabel: "Archive",
     destructive: true,
   });
@@ -405,13 +523,13 @@ async function archiveSubject(id) {
   try {
     const now = nowIso();
     const result = await db(
-      "UPDATE app_milestones__subjects SET archived_at = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
-      ["archived", now, id, row.updated_at],
+      "UPDATE app_milestones__people SET archived_at = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
+      [now, now, id, row.updated_at],
     );
     requireSingleChange(result, "This person changed in another session. Refresh before archiving.");
-    const i = subjects.findIndex((s) => s.id === id);
-    if (i !== -1) subjects[i] = { ...subjects[i], archived_at: "archived", updated_at: now };
-    selectedSubjectId = "all";
+    const i = people.findIndex((s) => s.id === id);
+    if (i !== -1) people[i] = { ...people[i], archived_at: now, updated_at: now };
+    selectedPersonId = "all";
     closeModal();
     render();
   } catch (e) {
@@ -420,20 +538,20 @@ async function archiveSubject(id) {
   }
 }
 
-async function restoreSubject(id) {
-  const row = subjectById(id);
+async function restorePerson(id) {
+  const row = personById(id);
   if (!row || !row.archived_at) return;
   if (!canArchive(row)) { error = "Only adults can restore someone."; return render(); }
   try {
     const now = nowIso();
     const result = await db(
-      "UPDATE app_milestones__subjects SET archived_at = NULL, updated_at = ? WHERE id = ? AND updated_at = ?",
+      "UPDATE app_milestones__people SET archived_at = NULL, updated_at = ? WHERE id = ? AND updated_at = ?",
       [now, id, row.updated_at],
     );
     requireSingleChange(result, "This person changed in another session. Refresh before restoring.");
-    const i = subjects.findIndex((s) => s.id === id);
-    if (i !== -1) subjects[i] = { ...subjects[i], archived_at: null, updated_at: now };
-    selectedSubjectId = id;
+    const i = people.findIndex((s) => s.id === id);
+    if (i !== -1) people[i] = { ...people[i], archived_at: null, updated_at: now };
+    selectedPersonId = id;
     error = "";
     render();
   } catch (e) {
@@ -446,73 +564,273 @@ async function deleteFilesBestEffort(ids) {
   await Promise.allSettled(ids.filter(Boolean).map((id) => files.delete(id)));
 }
 
-async function saveMilestone(fields, existingId) {
-  await requireActiveSubject(fields.subject_id);
+/**
+ * Refuses an attachment change the caller's row policy would silently drop.
+ *
+ * `milestone_people` is governed by inherit_visibility, which lets a non-adult
+ * delete only rows whose `written_by` is their own — while `canEdit` lets the
+ * author of a milestone go on editing it after an adult has changed who it is
+ * about. The two rules disagree in exactly that case, and the DELETE would
+ * match nothing rather than fail. Checked BEFORE the milestone UPDATE so a
+ * refusal leaves nothing half-written.
+ */
+function assertAttachmentsWritable(currentLinks, personIds) {
+  const blocked = blockedRemovals(attachmentDelta(currentLinks, personIds).remove, me);
+  if (!blocked.length) return;
+  const names = blocked.map((l) => personInfo(l.person_id).name || "someone").join(", ");
+  throw new Error(`An adult chose who this milestone is about (${names}). Ask an adult to change that.`);
+}
+
+/**
+ * The batches that make a milestone's attachments match `personIds`, plus the
+ * local rows they imply.
+ *
+ * Returns a LIST of batches, not one, because two hard limits collide with a
+ * milestone that names many people:
+ *  - D1 binds at most ~100 parameters per statement, and an attachment row
+ *    costs five. So adds are split into groups of MAX_SQL_PARAMS/5, and the
+ *    removal `IN (...)` into groups of MAX_SQL_PARAMS.
+ *  - A batch may contain only ONE insert into a capped table, and both tables
+ *    declare `max_rows`. So the extra insert groups cannot join the first
+ *    batch; each becomes its own.
+ *
+ * The ordinary milestone — a handful of people — still yields exactly one
+ * batch, so the common case stays atomic. Beyond that, atomicity degrades to
+ * convergence, which is what saveMilestone is built on anyway.
+ */
+function attachmentStatements(milestoneId, personIds, currentLinks) {
+  const { add, remove } = attachmentDelta(currentLinks, personIds);
+  const now = nowIso();
+
+  const { removalGroups, insertGroups } = attachmentBatchPlan(
+    add, remove, MAX_SQL_PARAMS, ATTACHMENT_COLUMNS,
+  );
+
+  const removals = removalGroups.map((group) => ({
+    statement: {
+      sql: `DELETE FROM app_milestones__milestone_people WHERE id IN (${group.map(() => "?").join(", ")})`,
+      params: group.map((l) => l.id),
+      // A row-policy rewrite that narrows the DELETE succeeds with zero changes
+      // and no error, so the count is the only proof it applied.
+      expectChanged: group.length,
+    },
+    removedIds: group.map((l) => l.id),
+  }));
+
+  const added = add.map((personId) => ({
+    id: crypto.randomUUID(), milestone_id: milestoneId, person_id: personId,
+    // Forced to the caller hub-side by the policy's writer_column; sent so demo
+    // mode and the local cache agree with what the database will hold.
+    written_by: me.id, created_at: now,
+  }));
+  const byPersonId = new Map(added.map((r) => [r.person_id, r]));
+  const inserts = insertGroups.map((ids) => ids.map((id) => byPersonId.get(id))).map((group) => ({
+    statement: {
+      sql: `INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at)
+            VALUES ${group.map(() => "(?, ?, ?, ?, ?)").join(", ")}`,
+      params: group.flatMap((r) => [r.id, r.milestone_id, r.person_id, r.written_by, r.created_at]),
+      expectChanged: group.length,
+    },
+    added: group,
+  }));
+
+  // Removals and the first insert group share one transaction — the shape a
+  // normal edit produces. Anything past that is a batch of its own. Each batch
+  // carries the local rows it implies, so a run that stops partway can still
+  // fold in exactly what committed.
+  const batches = [];
+  const head = [...removals, ...inserts.slice(0, 1)];
+  if (head.length) {
+    batches.push({
+      statements: head.map((part) => part.statement),
+      added: head.flatMap((part) => part.added ?? []),
+      removedIds: head.flatMap((part) => part.removedIds ?? []),
+    });
+  }
+  for (const part of inserts.slice(1)) {
+    batches.push({ statements: [part.statement], added: part.added, removedIds: [] });
+  }
+  return batches;
+}
+
+/** Folds one committed batch into the local cache. */
+function applyAttachmentsLocally({ added, removedIds }) {
+  if (removedIds.length) {
+    const gone = new Set(removedIds);
+    links = links.filter((l) => !gone.has(l.id));
+  }
+  if (added.length) links = [...links, ...added];
+  reindexLinks();
+}
+
+/** Runs prepared statements and refuses a write the database narrowed away. */
+async function runExpecting(statements, conflictMessage) {
+  const results = await dbBatch(statements.map(({ sql, params }) => ({ sql, params })));
+  if (!DB) return;
+  statements.forEach((statement, i) => {
+    if (results[i]?.changed !== statement.expectChanged) throw new Error(conflictMessage);
+  });
+}
+
+/**
+ * Writes an attachment delta, and says plainly when the milestone saved but its
+ * people did not.
+ */
+async function writeAttachments(milestoneId, personIds, currentLinks) {
+  for (const batch of attachmentStatements(milestoneId, personIds, currentLinks)) {
+    try {
+      await runExpecting(
+        batch.statements,
+        "Who this milestone is about changed in another session. Refresh before saving your changes.",
+      );
+    } catch (e) {
+      // Whatever committed before this stays committed and has already been
+      // folded in. The retry re-reads the attachments and recomputes the delta,
+      // so it picks up where this left off rather than repeating it.
+      throw new Error(`The milestone was saved, but who it is about was not: ${e.message} Press save again to finish.`);
+    }
+    applyAttachmentsLocally(batch);
+  }
+}
+
+/**
+ * Stops the open form from reclaiming photos a saved row now references.
+ *
+ * `closeModal` deletes every still-`isNew` upload, which is right while a form
+ * is unsaved and wrong the instant its `file_ids` commit — and both save paths
+ * can fail AFTER that commit, leaving the form open over a milestone that
+ * already points at these bytes.
+ */
+function markPhotosDurable() {
+  pendingFiles = pendingFiles.map((f) => ({ ...f, isNew: false }));
+}
+
+/** The attachments a milestone actually has right now, not the ones we cached. */
+async function currentLinksFor(milestoneId) {
+  if (!DB) return links.filter((l) => l.milestone_id === milestoneId);
+  return await fetchLinksFor([milestoneId]);
+}
+
+/**
+ * Saves a milestone and who it is about.
+ *
+ * The milestone row and its attachments cannot commit together (see dbBatch),
+ * so this does not pretend to be atomic. It is instead built to CONVERGE: the
+ * milestone commits first, `onCommitted` promotes the caller's form to an edit
+ * of that row, and only then are the attachments written as one atomic batch.
+ * If that batch fails, the form the member is still looking at now edits the
+ * saved milestone — so pressing save again re-reads the attachments, recomputes
+ * the delta, and finishes the job. It cannot create a second milestone, and it
+ * cannot trip the optimistic `updated_at` guard, because both paths refresh the
+ * cached row the moment the database accepts it.
+ */
+/**
+ * Announces a newly recorded milestone on the event bus. Best-effort by design:
+ * a delivery failure is reported to the member, never allowed to undo the save.
+ */
+async function publishRecorded(row, personIds) {
+  if (!DB) return "";
+  try {
+    // `subject_id` names the ONE member an event is about. A milestone can be
+    // about several people, or about the household and nobody in particular —
+    // both of which are honestly reported as no subject rather than by picking
+    // a winner.
+    const attachedMembers = personIds.map((id) => personById(id)?.member_id).filter(Boolean);
+    const res = await fetch(EVENTS_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        source_app_id: APP_ID,
+        type: "milestones.recorded",
+        subject_id: attachedMembers.length === 1 ? attachedMembers[0] : null,
+        payload: {
+          title: row.title,
+          category: row.category,
+          occurred_date: row.occurred_date,
+          date_precision: row.date_precision,
+          people: personIds.length,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Event request failed: ${res.status}`);
+    }
+    return "";
+  } catch (e) {
+    return e.message;
+  }
+}
+
+async function saveMilestone(fields, personIds, existingId, onCommitted = () => {}, announce = false) {
   const now = nowIso();
   const fileIds = JSON.stringify(pendingFiles.map((f) => f.id));
 
   if (existingId) {
     const existing = milestones.find((m) => m.id === existingId);
     if (!canEdit(existing)) throw new Error("You cannot edit this milestone.");
+    const current = await currentLinksFor(existingId);
+    // Only the NEWLY ticked people have to be active. An archived person who
+    // was already attached stays attached — see attachablePeople.
+    const delta = attachmentDelta(current, personIds);
+    await requireActivePeople(delta.add);
+    assertAttachmentsWritable(current, personIds);
+
     const result = await db(
       `UPDATE app_milestones__milestones
-         SET subject_id = ?, title = ?, note = ?, category = ?,
+         SET title = ?, note = ?, category = ?,
              occurred_date = ?, date_precision = ?, file_ids = ?, updated_at = ?
        WHERE id = ? AND updated_at = ?`,
-      [fields.subject_id, fields.title, fields.note, fields.category,
+      [fields.title, fields.note, fields.category,
        fields.occurred_date, fields.date_precision, fileIds, now, existingId, existing.updated_at],
     );
     requireSingleChange(result, "This milestone changed in another session. Refresh before saving your changes.");
+    // The saved row references these photos now, so they are no longer this
+    // form's to reclaim. Without this, cancelling after a failed attachment
+    // write would delete bytes the stored file_ids still point at.
+    markPhotosDurable();
+
+    // Advance the cached row BEFORE touching attachments: without this, a retry
+    // of a save whose attachment batch failed would send the timestamp the
+    // database has already replaced, and the optimistic guard would reject
+    // every attempt from here on.
     const i = milestones.findIndex((m) => m.id === existingId);
     if (i !== -1) {
       milestones[i] = { ...milestones[i], ...fields, file_ids: fileIds, updated_at: now };
       syncAnniversaryRow(milestones[i]);
     }
-    return { publishWarning: "" };
+
+    await writeAttachments(existingId, personIds, current);
+    // `announce` is set only when this edit is finishing a create whose
+    // attachments failed the first time. Without it the recovered milestone
+    // would never emit milestones.recorded, and every automation keyed on it
+    // would miss a milestone that really was recorded.
+    const publishWarning = announce ? await publishRecorded({ ...existing, ...fields }, personIds) : "";
+    return { publishWarning };
   }
 
+  await requireActivePeople(personIds);
   const row = {
     id: crypto.randomUUID(), ...fields, file_ids: fileIds, visibility: "everyone",
     created_by: me.id, created_at: now, updated_at: now,
   };
   await db(
     `INSERT INTO app_milestones__milestones
-       (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [row.id, row.subject_id, row.title, row.note, row.category, row.occurred_date,
+       (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.id, row.title, row.note, row.category, row.occurred_date,
      row.date_precision, row.file_ids, row.visibility, row.created_by, row.created_at, row.updated_at],
   );
   milestones = [...milestones, row];
   syncAnniversaryRow(row);
+  // The milestone exists now. Anything that fails past this point must be
+  // finishable by editing it, never by creating it again.
+  markPhotosDurable();
+  onCommitted(row.id);
 
-  let publishWarning = "";
-  if (DB) {
-    try {
-      const res = await fetch(EVENTS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        keepalive: true,
-        body: JSON.stringify({
-          source_app_id: APP_ID,
-          type: "milestones.recorded",
-          subject_id: subjectById(row.subject_id)?.member_id || null,
-          payload: {
-            title: row.title,
-            category: row.category,
-            occurred_date: row.occurred_date,
-            date_precision: row.date_precision,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Event request failed: ${res.status}`);
-      }
-    } catch (e) {
-      publishWarning = e.message;
-    }
-  }
-  return { publishWarning };
+  await writeAttachments(row.id, personIds, []);
+  return { publishWarning: await publishRecorded(row, personIds) };
 }
 
 async function deleteMilestone(id) {
@@ -534,6 +852,11 @@ async function deleteMilestone(id) {
     requireSingleChange(result, "This milestone changed in another session. Refresh before removing it.");
     milestones = milestones.filter((m) => m.id !== id);
     anniversaryMilestones = anniversaryMilestones.filter((m) => m.id !== id);
+    // Its attachment rows go with it hub-side via manifest.delete_cascades;
+    // drop them locally so the index does not keep naming a milestone that is
+    // no longer there.
+    links = links.filter((l) => l.milestone_id !== id);
+    reindexLinks();
     // The manifest's delete_file_list_columns records durable cleanup after
     // commit and rechecks references before deleting shared bytes.
     render();
@@ -571,37 +894,48 @@ function closeModal({ keepNewUploads = false } = {}) {
   pendingFiles = [];
 }
 
-function subjectForm(existing) {
+/**
+ * One "Who is this?" picker, not two fields.
+ *
+ * The roster select is the primary control: choosing a member fills the name
+ * and birthday from the roster and collapses both, so nothing already known has
+ * to be typed twice. They stay reachable — the roster has no birthday for most
+ * members, and `birthdate` is stripped from family.members for guests and in
+ * shared spaces, which is why this app stores its own copy at all.
+ */
+function personForm(existing) {
   const linked = existing?.member_id ?? "";
   return `
     <h2>${existing ? "Edit" : "Add"} someone</h2>
-    <form class="form" id="subject-form" data-id="${esc(existing?.id ?? "")}">
+    <form class="form" id="person-form" data-id="${esc(existing?.id ?? "")}">
       <div class="field">
-        <label for="s-name">Name</label>
-        <input id="s-name" name="name" data-autofocus value="${esc(existing?.name ?? "")}"
-               placeholder="Rowan" required maxlength="80" />
-      </div>
-      <div class="field">
-        <label for="s-member">Household member</label>
-        <select id="s-member" name="member_id">
-          <option value="">Not on the roster (a baby, a pet, the house)</option>
+        <label for="p-member">Who is this?</label>
+        <select id="p-member" name="member_id" data-autofocus>
+          <option value=""${linked ? "" : " selected"}>Someone not on the roster — a baby, a grandparent, a pet</option>
           ${members.map((m) => `<option value="${esc(m.id)}"${m.id === linked ? " selected" : ""}>${esc(m.name)}</option>`).join("")}
         </select>
-        <p class="hint">Linking keeps the name in step with the roster.</p>
       </div>
-      <div class="row">
+      <div id="p-details" class="stack">
         <div class="field">
-          <label for="s-birth">Born</label>
-          <input id="s-birth" name="birth_date" type="date" value="${esc(existing?.birth_date ?? "")}" />
+          <label for="p-name">Name</label>
+          <input id="p-name" name="name" value="${esc(existing?.name ?? "")}"
+                 placeholder="Rowan" maxlength="80" />
         </div>
-        <div class="field">
-          <label for="s-icon">Icon</label>
-          <input id="s-icon" name="icon" value="${esc(existing?.icon ?? "🌱")}" maxlength="4" />
+        <div class="row">
+          <div class="field">
+            <label for="p-birth">Born</label>
+            <input id="p-birth" name="birth_date" type="date" value="${esc(existing?.birth_date ?? "")}" />
+          </div>
+          <div class="field">
+            <label for="p-icon">Icon</label>
+            <input id="p-icon" name="icon" value="${esc(existing?.icon ?? "🌱")}" maxlength="4" />
+          </div>
         </div>
+        <p class="hint">A birthday is optional — it is only used to show how old they were.</p>
       </div>
-      <p class="hint">A birthday is optional — it is only used to show how old they were.</p>
+      <button class="btn-quiet" type="button" id="p-toggle" hidden>Edit name and birthday</button>
       <div class="modal-actions">
-        ${existing && canArchive(existing) ? `<button class="btn btn-ghost" type="button" data-archive-subject="${esc(existing.id)}">Archive</button>` : ""}
+        ${existing && canArchive(existing) ? `<button class="btn btn-ghost" type="button" data-archive-person="${esc(existing.id)}">Archive</button>` : ""}
         <button class="btn btn-ghost" type="button" data-close>Cancel</button>
         <button class="btn" type="submit">${existing ? "Save" : "Add"}</button>
       </div>
@@ -609,8 +943,47 @@ function subjectForm(existing) {
   `;
 }
 
-function milestoneForm(existing) {
-  const list = activeSubjects(subjects);
+/**
+ * Fills name and birthday from the roster and hides them, once a member is
+ * chosen and the fields hold nothing the roster does not already have.
+ *
+ * Never overwrites something already typed: an edit whose stored birthday is
+ * the only one that survived the guest strip must not be blanked by a roster
+ * row that has none.
+ */
+function syncPersonDetails({ adopt = false } = {}) {
+  const form = modalEl?.querySelector("#person-form");
+  if (!form) return;
+  const f = form.elements;
+  const member = memberById.get(f.member_id.value) ?? null;
+  if (adopt && member) {
+    if (!f.name.value.trim()) f.name.value = member.name ?? "";
+    if (!f.birth_date.value && member.birthdate) f.birth_date.value = member.birthdate;
+  }
+  const details = form.querySelector("#p-details");
+  const toggle = form.querySelector("#p-toggle");
+  // Only a roster-linked person can have their details collapsed: without a
+  // member there is no other source for the name, so the fields are the form.
+  const collapsible = Boolean(member) && !details.dataset.forceOpen;
+  details.hidden = collapsible;
+  toggle.hidden = !collapsible;
+  toggle.textContent = member?.birthdate || f.birth_date.value
+    ? "Edit name and birthday"
+    : "Add a birthday, to show how old they were";
+}
+
+/**
+ * "Who is this about?" — zero, one, or several people.
+ *
+ * Checkboxes rather than a required select: leaving every box clear is the
+ * answer for "we got the keys", and ticking two is the answer for a first day
+ * of school two siblings shared.
+ */
+function milestoneForm(existing, presetPersonIds) {
+  const chosen = new Set(presetPersonIds ?? []);
+  // Active people, PLUS anyone archived who is already attached here — offered
+  // pre-ticked so an edit cannot silently drop the association.
+  const list = attachablePeople(people, [...chosen]);
   const today = todayStr(new Date(), householdTimeZone);
   const [dy, dm, dd] = (existing?.occurred_date ?? today).split("-");
   const precision = existing?.date_precision ?? "day";
@@ -619,13 +992,14 @@ function milestoneForm(existing) {
     <h2>${existing ? "Edit" : "Add a"} milestone</h2>
     <form class="form" id="milestone-form" data-id="${esc(existing?.id ?? "")}">
       <div class="field">
-        <label for="m-subject">Who</label>
-        <select id="m-subject" name="subject_id" required>
-          ${list.map((s) => {
-            const sel = s.id === (existing?.subject_id ?? selectedSubjectId) ? " selected" : "";
-            return `<option value="${esc(s.id)}"${sel}>${esc(resolveSubject(s, members).name)}</option>`;
+        <label>Who is this about?</label>
+        ${list.length ? `<div class="who">
+          ${list.map(({ person, archived }) => {
+            const info = resolvePerson(person, members);
+            return `<label class="who-option"><input type="checkbox" name="person_ids" value="${esc(person.id)}"${chosen.has(person.id) ? " checked" : ""} /> <span>${esc(person.icon || "🌱")} ${esc(info.name)}${archived ? ` <span class="muted tiny">(archived)</span>` : ""}</span></label>`;
           }).join("")}
-        </select>
+        </div>` : ""}
+        <p class="hint">Leave everyone unticked for a household milestone — the day we got the keys, the day we planted the oak.</p>
       </div>
       <div class="field">
         <label for="m-title">What happened</label>
@@ -681,6 +1055,11 @@ function milestoneForm(existing) {
   `;
 }
 
+/** The ticked people, as ids. A form with no people offers no checkboxes. */
+function checkedPersonIds(form) {
+  return [...form.querySelectorAll('input[name="person_ids"]:checked')].map((el) => el.value);
+}
+
 /** Shows the month/day inputs only at the precision that actually uses them. */
 function syncPrecisionFields() {
   const form = modalEl?.querySelector("#milestone-form");
@@ -701,24 +1080,26 @@ function renderPendingPhotos() {
 
 // --- Render ------------------------------------------------------------------
 function visibleMilestones() {
-  const activeMilestones = milestonesForActiveSubjects(milestones, subjects);
-  let list = selectedSubjectId === "all"
-    ? activeMilestones
-    : activeMilestones.filter((m) => m.subject_id === selectedSubjectId);
+  let list = filterByPerson(
+    visibleMilestonesFor(milestones, linkIndex, people),
+    linkIndex,
+    selectedPersonId,
+  );
   if (searchQ) {
-    list = list.filter((m) => searchMatch(searchQ, searchableFields(m, subjectInfo(m.subject_id).name)));
+    list = list.filter((m) => searchMatch(searchQ, searchableFields(m, attachedTo(m).map((e) => e.name))));
   }
   return sortTimeline(list);
 }
 
 function renderEntry(m, isLast) {
-  const info = subjectInfo(m.subject_id);
-  const age = ageAt(info.birthDate, m.occurred_date, m.date_precision);
+  const who = attachedTo(m);
   const photos = parseFileIds(m);
+  // Each person carries their own age: two siblings share a first day of school
+  // and were not the same age on it, so one shared age would be wrong for both.
+  const whoText = describePeople(who);
   const meta = [
     formatOccurred(m.occurred_date, m.date_precision),
-    selectedSubjectId === "all" ? esc(info.name) : "",
-    age ? `<span class="age">${esc(age)}</span>` : "",
+    whoText ? `<span class="age">${esc(whoText)}</span>` : "",
   ].filter(Boolean).join(" · ");
 
   return `
@@ -750,7 +1131,10 @@ function renderTimeline() {
   if (!all.length) {
     if (searchLoading) return `<div class="card empty">Searching the full timeline…</div>`;
     if (searchQ) return `<div class="card empty">Nothing matches "${esc(searchQ)}".</div>`;
-    if (!activeSubjects(subjects).length) return `<div class="card empty">Add someone first, then start their timeline.</div>`;
+    if (selectedPersonId === "household") return `<div class="card empty">Nothing yet that is about the household rather than a person — the day you got the keys, the day the tree went in.</div>`;
+    if (selectedPersonId !== "all") {
+      return `<div class="card empty">Nothing recorded about ${esc(personInfo(selectedPersonId).name || "them")} yet.</div>`;
+    }
     return `<div class="card empty">No milestones yet. The first one is usually the hardest to remember the date of — "the month" is a fine answer.</div>`;
   }
   const { items: list, hiddenCount } = latestTimelinePage(all, timelineLimit);
@@ -771,23 +1155,26 @@ function renderTimeline() {
 
 function renderOnThisDay() {
   const today = todayStr(new Date(), householdTimeZone);
-  const hits = milestonesForActiveSubjects(anniversaryMilestones, subjects);
+  const hits = visibleMilestonesFor(anniversaryMilestones, linkIndex, people);
   if (!hits.length) return "";
   return `
     <div class="banner">
       <h2>On this day</h2>
       ${hits.map((m) => {
-        const info = subjectInfo(m.subject_id);
+        const names = attachedTo(m).map((e) => e.name).filter(Boolean).join(" and ");
         const years = Number(today.slice(0, 4)) - Number(m.occurred_date.slice(0, 4));
-        return `<div>${esc(m.title)} — ${esc(info.name)}, ${years === 1 ? "a year" : `${years} years`} ago</div>`;
+        const ago = years === 1 ? "a year" : `${years} years`;
+        return `<div>${esc(m.title)}${names ? ` — ${esc(names)}` : ""}, ${ago} ago</div>`;
       }).join("")}
     </div>
   `;
 }
 
 function render() {
-  const list = activeSubjects(subjects);
-  const archived = archivedSubjects(subjects);
+  const list = activePeople(people);
+  const archived = archivedPeople(people);
+  const shown = visibleMilestonesFor(milestones, linkIndex, people);
+  const hasHousehold = shown.some((m) => personIdsFor(linkIndex, m.id).length === 0);
   const root = document.getElementById("root");
   root.className = "app";
   if (!ready) {
@@ -814,28 +1201,29 @@ function render() {
     ${error ? `<div class="error">${esc(error)}</div>` : ""}
     ${renderOnThisDay()}
     <div class="subjects">
-      ${list.length > 1 ? `<button class="chip" type="button" aria-pressed="${selectedSubjectId === "all"}" data-subject="all">Everyone</button>` : ""}
+      ${list.length || hasHousehold ? `<button class="chip" type="button" aria-pressed="${selectedPersonId === "all"}" data-person="all">Everything</button>` : ""}
+      ${hasHousehold ? `<button class="chip" type="button" aria-pressed="${selectedPersonId === "household"}" data-person="household">🏡 The household</button>` : ""}
       ${list.map((s) => {
-        const info = resolveSubject(s, members);
+        const info = resolvePerson(s, members);
         return `<span class="subject-control">
-          <button class="chip" type="button" aria-pressed="${s.id === selectedSubjectId}" data-subject="${esc(s.id)}">${esc(s.icon || "🌱")} ${esc(info.name)}</button>
-          ${canEdit(s) ? `<button class="btn-quiet" type="button" data-edit-subject="${esc(s.id)}" aria-label="Edit ${esc(info.name)}">Edit</button>` : ""}
+          <button class="chip" type="button" aria-pressed="${s.id === selectedPersonId}" data-person="${esc(s.id)}">${esc(s.icon || "🌱")} ${esc(info.name)}</button>
+          ${canEdit(s) ? `<button class="btn-quiet" type="button" data-edit-person="${esc(s.id)}" aria-label="Edit ${esc(info.name)}">Edit</button>` : ""}
         </span>`;
       }).join("")}
-      <button class="chip" type="button" data-add-subject>+ Someone</button>
+      <button class="chip" type="button" data-add-person>+ Someone</button>
     </div>
     ${archived.some(canArchive) ? `
       <details class="archived-subjects">
         <summary>Archived (${archived.length})</summary>
         <div class="archived-subject-list">
           ${archived.filter(canArchive).map((s) => {
-            const info = resolveSubject(s, members);
-            return `<button class="btn-quiet" type="button" data-restore-subject="${esc(s.id)}">Restore ${esc(info.name)}</button>`;
+            const info = resolvePerson(s, members);
+            return `<button class="btn-quiet" type="button" data-restore-person="${esc(s.id)}">Restore ${esc(info.name)}</button>`;
           }).join("")}
         </div>
       </details>` : ""}
-    ${list.length ? `<button class="btn" type="button" data-add-milestone>Add a milestone</button>` : ""}
-    ${milestonesForActiveSubjects(milestones, subjects).length ? `
+    <button class="btn" type="button" data-add-milestone>Add a milestone</button>
+    ${shown.length ? `
       <div class="search-row" style="margin-top:12px">
         <input id="search" class="search-input" type="search" placeholder="Search milestones…" aria-label="Search milestones" value="${esc(searchQ)}" />
       </div>` : ""}
@@ -851,8 +1239,8 @@ document.addEventListener("click", async (event) => {
   if (btn.matches("[data-refresh]"))  { refresh(); return; }
   if (btn.matches("[data-close]"))    { closeModal(); return; }
 
-  if (btn.hasAttribute("data-subject")) {
-    selectedSubjectId = btn.getAttribute("data-subject");
+  if (btn.hasAttribute("data-person")) {
+    selectedPersonId = btn.getAttribute("data-person");
     timelineLimit = TIMELINE_PAGE_SIZE;
     render();
     return;
@@ -876,30 +1264,37 @@ document.addEventListener("click", async (event) => {
     render();
     return;
   }
-  if (btn.matches("[data-add-subject]")) { openModal(subjectForm(null)); return; }
-  if (btn.hasAttribute("data-edit-subject")) {
-    const row = subjectById(btn.getAttribute("data-edit-subject"));
-    if (row && canEdit(row)) openModal(subjectForm(row));
+  if (btn.matches("[data-add-person]")) { openModal(personForm(null)); syncPersonDetails(); return; }
+  if (btn.hasAttribute("data-edit-person")) {
+    const row = personById(btn.getAttribute("data-edit-person"));
+    if (row && canEdit(row)) { openModal(personForm(row)); syncPersonDetails(); }
     return;
   }
-  if (btn.hasAttribute("data-archive-subject")) {
-    await archiveSubject(btn.getAttribute("data-archive-subject"));
+  if (btn.matches("#p-toggle")) {
+    const details = modalEl?.querySelector("#p-details");
+    if (details) { details.dataset.forceOpen = "1"; syncPersonDetails(); details.querySelector("input")?.focus(); }
     return;
   }
-  if (btn.hasAttribute("data-restore-subject")) {
-    await restoreSubject(btn.getAttribute("data-restore-subject"));
+  if (btn.hasAttribute("data-archive-person")) {
+    await archivePerson(btn.getAttribute("data-archive-person"));
+    return;
+  }
+  if (btn.hasAttribute("data-restore-person")) {
+    await restorePerson(btn.getAttribute("data-restore-person"));
     return;
   }
   if (btn.matches("[data-add-milestone]")) {
-    if (selectedSubjectId === "all") selectedSubjectId = activeSubjects(subjects)[0]?.id ?? "all";
-    openModal(milestoneForm(null));
+    // A person chip pre-ticks that person; "Everything" and "The household"
+    // both open with nobody ticked, which is a household milestone.
+    const preset = selectedPersonId === "all" || selectedPersonId === "household" ? [] : [selectedPersonId];
+    openModal(milestoneForm(null, preset));
     syncPrecisionFields();
     return;
   }
   if (btn.hasAttribute("data-edit-milestone")) {
     const row = milestones.find((m) => m.id === btn.getAttribute("data-edit-milestone"));
     if (!row) return;
-    openModal(milestoneForm(row));
+    openModal(milestoneForm(row, personIdsFor(linkIndex, row.id)));
     pendingFiles = parseFileIds(row).map((id) => ({ id, url: files.url(id), isNew: false }));
     syncPrecisionFields();
     renderPendingPhotos();
@@ -921,6 +1316,7 @@ document.addEventListener("click", async (event) => {
 
 document.addEventListener("change", async (event) => {
   if (event.target.id === "m-precision") { syncPrecisionFields(); return; }
+  if (event.target.id === "p-member") { syncPersonDetails({ adopt: true }); return; }
   if (event.target.id !== "m-photo") return;
 
   const input = event.target;
@@ -970,7 +1366,7 @@ document.addEventListener("input", async (event) => {
 
 document.addEventListener("submit", async (event) => {
   const form = event.target;
-  if (form.id !== "subject-form" && form.id !== "milestone-form") return;
+  if (form.id !== "person-form" && form.id !== "milestone-form") return;
   event.preventDefault();
 
   const submit = form.querySelector('.modal-actions button[type="submit"]');
@@ -983,23 +1379,29 @@ document.addEventListener("submit", async (event) => {
     // already owns `name` and `title` as DOM properties, so `form.title` is the
     // element's tooltip string, not the input.
     const f = form.elements;
-    if (form.id === "subject-form") {
-      const name = f.name.value.trim();
-      if (!name) { f.name.focus(); throw new Error("A name is required."); }
-      const id = await saveSubject({
+    if (form.id === "person-form") {
+      // The roster name is the fallback when the collapsed field is empty —
+      // choosing a member IS naming them, so an untouched form still saves.
+      const name = f.name.value.trim() || memberById.get(f.member_id.value)?.name?.trim() || "";
+      if (!name) {
+        form.querySelector("#p-details").dataset.forceOpen = "1";
+        syncPersonDetails();
+        f.name.focus();
+        throw new Error("A name is required.");
+      }
+      const id = await savePerson({
         name,
         member_id: f.member_id.value,
         birth_date: f.birth_date.value,
         icon: f.icon.value.trim() || "🌱",
       }, form.dataset.id || null);
-      if (!form.dataset.id) selectedSubjectId = id;
+      if (!form.dataset.id) selectedPersonId = id;
     } else {
       const title = f.title.value.trim();
       if (!title) { f.title.focus(); throw new Error("Say what happened."); }
       if (uploadsInFlight > 0) throw new Error("Wait for the selected photos to finish uploading.");
       const precision = f.date_precision.value;
       const result = await saveMilestone({
-        subject_id: f.subject_id.value,
         title,
         note: f.note.value.trim(),
         category: f.category.value,
@@ -1010,7 +1412,14 @@ document.addEventListener("submit", async (event) => {
           Number(f.day.value || 1),
           precision,
         ),
-      }, form.dataset.id || null);
+      }, checkedPersonIds(form), form.dataset.id || null,
+         // Promotes this form to an edit the instant the milestone row commits,
+         // so a failure while writing its people is finished by pressing save
+         // again rather than creating a second milestone. `owesAnnounce` rides
+         // along so the finishing edit still publishes milestones.recorded.
+         (id) => { form.dataset.id = id; form.dataset.owesAnnounce = "1"; },
+         form.dataset.owesAnnounce === "1");
+      delete form.dataset.owesAnnounce;
       postSaveWarning = result?.publishWarning ?? "";
     }
     error = "";

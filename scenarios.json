@@ -2,249 +2,664 @@
   "scenarios": [
     {
       "name": "a child records their own milestone, may correct it, but may not remove it",
-      "members": { "grown": "adult", "kid": "child" },
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
       "steps": [
-        {
-          "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at) VALUES ('sub1', ?, 'Rowan', '2019-04-02', '🌱', 'everyone', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["{{kid}}", "{{grown}}"]
-        },
         {
           "action": "db",
           "as": "kid",
-          "sql": "INSERT INTO app_milestones__milestones (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES (?, 'sub1', ?, '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
-          "params": ["m-kid", "Lost a tooth", "{{kid}}"],
-          "expect": { "status": 200 }
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES (?, ?, '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "m-kid",
+            "Lost a tooth",
+            "{{kid}}"
+          ],
+          "expect": {
+            "status": 200
+          }
         },
         {
           "action": "db",
           "as": "kid",
           "sql": "UPDATE app_milestones__milestones SET category = ? WHERE id = ?",
-          "params": ["health", "m-kid"],
-          "expect": { "status": 200 }
+          "params": [
+            "health",
+            "m-kid"
+          ],
+          "expect": {
+            "status": 200
+          }
         },
         {
           "action": "db",
           "as": "kid",
           "sql": "SELECT id, category FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-kid"],
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-kid", "category": "health" }] }
+          "params": [
+            "m-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "m-kid",
+                "category": "health"
+              }
+            ]
+          }
         },
         {
           "action": "db",
           "as": "kid",
           "sql": "DELETE FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-kid"],
-          "expect": { "status": 403 }
+          "params": [
+            "m-kid"
+          ],
+          "expect": {
+            "status": 403
+          }
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "SELECT id FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-kid"],
-          "expect": { "status": 200, "rowCount": 1 }
+          "params": [
+            "m-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "DELETE FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-kid"],
-          "expect": { "status": 200 }
+          "params": [
+            "m-kid"
+          ],
+          "expect": {
+            "status": 200
+          }
+        }
+      ]
+    },
+    {
+      "name": "a milestone about nobody in particular needs no stand-in person",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES (?, ?, '', 'home', '2018-06-21', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "m-house",
+            "We got the keys",
+            "{{grown}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_milestones__milestone_people WHERE milestone_id = ?",
+          "params": [
+            "m-house"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_milestones__milestones WHERE id = ?",
+          "params": [
+            "m-house"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
         }
       ]
     },
     {
       "name": "a child cannot rewrite an adult's milestone, and cannot see a private one",
-      "members": { "grown": "adult", "kid": "child" },
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
       "steps": [
         {
           "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at) VALUES ('sub1', '', 'Baby', '2024-01-05', '🌱', 'everyone', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["{{grown}}"]
-        },
-        {
-          "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__milestones (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-open', 'sub1', 'First steps', '', 'first', '2025-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-private', 'sub1', 'A hard day', '', 'health', '2025-06-01', 'day', '[]', 'private', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
-          "params": ["{{grown}}", "{{grown}}"]
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-open', 'First word', '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-secret', 'Hidden', '', 'other', '2024-04-01', 'day', '[]', 'private', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}",
+            "{{grown}}"
+          ]
         },
         {
           "action": "db",
           "as": "kid",
           "sql": "SELECT id FROM app_milestones__milestones ORDER BY occurred_date",
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-open" }] }
+          "params": [],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "m-open"
+              }
+            ]
+          }
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "SELECT id FROM app_milestones__milestones ORDER BY occurred_date",
-          "expect": { "status": 200, "rowCount": 2 }
+          "params": [],
+          "expect": {
+            "status": 200,
+            "rowCount": 2
+          }
         },
         {
           "action": "db",
           "as": "kid",
           "sql": "UPDATE app_milestones__milestones SET category = ? WHERE id = ?",
-          "params": ["other", "m-open"],
-          "expect": { "status": 200 }
+          "params": [
+            "school",
+            "m-open"
+          ],
+          "expect": {
+            "status": 200
+          }
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "SELECT id, category FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-open"],
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-open", "category": "first" }] }
+          "params": [
+            "m-open"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "m-open",
+                "category": "first"
+              }
+            ]
+          }
         }
       ]
     },
     {
-      "name": "the named AI export reads the timeline and skips archived subjects",
-      "members": { "grown": "adult" },
+      "name": "attachments inherit the milestone's visibility and are cascaded with it",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
       "steps": [
         {
           "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('sub-live', '', 'Rowan', '2019-04-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'), ('sub-gone', '', 'Old', '', '🌱', 'everyone', '2026-08-01T00:00:00Z', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["{{grown}}", "{{grown}}"]
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('p-rowan', '', 'Rowan', '2019-04-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
         },
         {
           "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__milestones (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-live', 'sub-live', 'First word', '', 'first', '2020-08-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-gone', 'sub-gone', 'Hidden', '', 'other', '2020-09-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
-          "params": ["{{grown}}", "{{grown}}"]
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-secret', 'Hidden', '', 'other', '2024-04-01', 'day', '[]', 'private', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES ('l-secret', 'm-secret', 'p-rowan', ?, '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_milestones__milestone_people WHERE milestone_id = ?",
+          "params": [
+            "m-secret"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_milestones__milestone_people WHERE milestone_id = ?",
+          "params": [
+            "m-secret"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "DELETE FROM app_milestones__milestones WHERE id = ?",
+          "params": [
+            "m-secret"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_milestones__milestone_people WHERE milestone_id = ?",
+          "params": [
+            "m-secret"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "a child may detach the people they attached, but not the ones an adult did",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('p-a', '', 'Avery', '2019-04-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'), ('p-b', '', 'Bea', '2019-04-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
+          "params": [
+            "{{grown}}",
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-kid', 'First goal', '', 'first', '2024-05-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{kid}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            "l-kid",
+            "m-kid",
+            "p-a",
+            "{{kid}}",
+            "2026-08-02T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES ('l-grown', 'm-kid', 'p-b', ?, '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_milestones__milestone_people WHERE id = ? RETURNING id",
+          "params": [
+            "l-kid"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_milestones__milestone_people WHERE id = ? RETURNING id",
+          "params": [
+            "l-grown"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "DELETE FROM app_milestones__milestone_people WHERE id = ? RETURNING id",
+          "params": [
+            "l-grown"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "a multi-row attachment insert forces written_by on every row",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('p-a', '', 'Avery', '2016-01-10', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'), ('p-b', '', 'Bea', '2018-02-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
+          "params": [
+            "{{grown}}",
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-both', 'First day of school', '', 'school', '2024-09-03', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{kid}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)",
+          "params": [
+            "l-1",
+            "m-both",
+            "p-a",
+            "{{grown}}",
+            "2026-08-02T00:00:00Z",
+            "l-2",
+            "m-both",
+            "p-b",
+            "{{grown}}",
+            "2026-08-02T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_milestones__milestone_people WHERE milestone_id = ? AND written_by = ? ORDER BY id",
+          "params": [
+            "m-both",
+            "{{kid}}"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "l-1"
+              },
+              {
+                "id": "l-2"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_milestones__milestone_people WHERE milestone_id = ? AND written_by = ?",
+          "params": [
+            "m-both",
+            "{{grown}}"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_milestones__milestone_people WHERE id IN (?, ?) RETURNING id",
+          "params": [
+            "l-1",
+            "l-2"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "the named AI export keeps household milestones and skips fully-archived ones",
+      "members": {
+        "grown": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('p-live', '', 'Rowan', '2019-04-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'), ('p-gone', '', 'Old', '', '🌱', 'everyone', '2026-08-01T00:00:00Z', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
+          "params": [
+            "{{grown}}",
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-live', 'First word', '', 'first', '2020-08-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-gone', 'Hidden', '', 'other', '2020-09-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-house', 'We got the keys', '', 'home', '2018-06-21', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}",
+            "{{grown}}",
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES ('l-live', 'm-live', 'p-live', ?, '2026-08-02T00:00:00Z'), ('l-gone', 'm-gone', 'p-gone', ?, '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}",
+            "{{grown}}"
+          ]
         },
         {
           "action": "named",
           "as": "grown",
           "kind": "query",
           "name": "milestone_timeline",
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-live" }] }
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              {
+                "id": "m-live"
+              },
+              {
+                "id": "m-house"
+              }
+            ]
+          }
         }
       ]
     },
     {
       "name": "stale milestone edits cannot overwrite a newer save",
-      "members": { "grown": "adult" },
+      "members": {
+        "grown": "adult"
+      },
       "steps": [
         {
           "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at) VALUES ('sub-race', '', 'Rowan', '', '🌱', 'everyone', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["{{grown}}"]
-        },
-        {
-          "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__milestones (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-race', 'sub-race', 'First word', '', 'first', '2020-08-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
-          "params": ["{{grown}}"]
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-race', 'First step', '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "UPDATE app_milestones__milestones SET category = ?, updated_at = ? WHERE id = ? AND updated_at = ? RETURNING id",
-          "params": ["health", "2026-08-03T00:00:00Z", "m-race", "2026-08-02T00:00:00Z"],
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-race" }] }
+          "params": [
+            "health",
+            "2026-08-03T00:00:00Z",
+            "m-race",
+            "2026-08-02T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "m-race"
+              }
+            ]
+          }
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "UPDATE app_milestones__milestones SET category = ?, updated_at = ? WHERE id = ? AND updated_at = ? RETURNING id",
-          "params": ["other", "2026-08-04T00:00:00Z", "m-race", "2026-08-02T00:00:00Z"],
-          "expect": { "status": 200, "rowCount": 0 }
+          "params": [
+            "travel",
+            "2026-08-03T00:00:00Z",
+            "m-race",
+            "2026-08-02T00:00:00Z"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
         },
         {
           "action": "db",
           "as": "grown",
           "sql": "SELECT id, category FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-race"],
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-race", "category": "health" }] }
+          "params": [
+            "m-race"
+          ],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "m-race",
+                "category": "health"
+              }
+            ]
+          }
         }
       ]
     },
     {
-      "name": "an archive committed before a milestone write blocks that write atomically",
-      "members": { "grown": "adult" },
+      "name": "only an adult may archive or restore someone",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
       "steps": [
         {
           "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at) VALUES ('sub-archived-race', '', 'Rowan', '', '🌱', 'everyone', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["{{grown}}"]
-        },
-        {
-          "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__milestones (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-before-archive', 'sub-archived-race', 'First word', '', 'first', '2020-08-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
-          "params": ["{{grown}}"]
-        },
-        {
-          "action": "seedRaw",
-          "sql": "UPDATE app_milestones__subjects SET archived_at = 'archived', updated_at = '2026-08-03T00:00:00Z' WHERE id = 'sub-archived-race'"
-        },
-        {
-          "action": "db",
-          "as": "grown",
-          "sql": "INSERT INTO app_milestones__milestones (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-after-archive', 'sub-archived-race', 'Hidden write', '', 'other', '2020-09-01', 'day', '[]', 'everyone', ?, '2026-08-04T00:00:00Z', '2026-08-04T00:00:00Z')",
-          "params": ["{{grown}}"],
-          "expect": { "status": 403 }
-        },
-        {
-          "action": "db",
-          "as": "grown",
-          "sql": "UPDATE app_milestones__milestones SET note = ?, updated_at = ? WHERE id = ?",
-          "params": ["Hidden edit", "2026-08-04T00:00:00Z", "m-before-archive"],
-          "expect": { "status": 200 }
-        },
-        {
-          "action": "db",
-          "as": "grown",
-          "sql": "SELECT id, note FROM app_milestones__milestones WHERE id = ?",
-          "params": ["m-before-archive"],
-          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-before-archive", "note": "" }] }
-        }
-      ]
-    },
-    {
-      "name": "only an adult may archive or restore a subject",
-      "members": { "grown": "adult", "kid": "child" },
-      "steps": [
-        {
-          "action": "seedRaw",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at) VALUES ('sub-kid', ?, 'Rowan', '2019-04-02', '🌱', 'everyone', ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["{{kid}}", "{{kid}}"]
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('p-rowan', '', 'Rowan', '2019-04-02', '🌱', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
         },
         {
           "action": "db",
           "as": "kid",
-          "sql": "INSERT INTO app_milestones__subjects (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('sub-hidden', '', 'Hidden', '', '🌱', 'everyone', ?, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
-          "params": ["2026-08-02T00:00:00Z", "{{kid}}"],
-          "expect": { "status": 403 }
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES (?, '', ?, '', '🌱', 'everyone', ?, ?, ?, ?)",
+          "params": [
+            "p-new",
+            "Baby",
+            "2026-08-01T00:00:00Z",
+            "{{kid}}",
+            "2026-08-01T00:00:00Z",
+            "2026-08-01T00:00:00Z"
+          ],
+          "expect": {
+            "status": 403
+          }
         },
         {
           "action": "db",
           "as": "kid",
-          "sql": "UPDATE app_milestones__subjects SET archived_at = ? WHERE id = ?",
-          "params": ["2026-08-02T00:00:00Z", "sub-kid"],
-          "expect": { "status": 403 }
+          "sql": "UPDATE app_milestones__people SET archived_at = ? WHERE id = ?",
+          "params": [
+            "2026-08-03T00:00:00Z",
+            "p-rowan"
+          ],
+          "expect": {
+            "status": 403
+          }
         },
         {
           "action": "db",
           "as": "grown",
-          "sql": "UPDATE app_milestones__subjects SET archived_at = ? WHERE id = ?",
-          "params": ["2026-08-02T00:00:00Z", "sub-kid"],
-          "expect": { "status": 200 }
+          "sql": "UPDATE app_milestones__people SET archived_at = ? WHERE id = ?",
+          "params": [
+            "2026-08-03T00:00:00Z",
+            "p-rowan"
+          ],
+          "expect": {
+            "status": 200
+          }
         },
         {
           "action": "db",
           "as": "grown",
-          "sql": "UPDATE app_milestones__subjects SET archived_at = NULL WHERE id = ?",
-          "params": ["sub-kid"],
-          "expect": { "status": 200 }
+          "sql": "UPDATE app_milestones__people SET archived_at = NULL WHERE id = ?",
+          "params": [
+            "p-rowan"
+          ],
+          "expect": {
+            "status": 200
+          }
         }
       ]
     },
     {
       "name": "recording a milestone publishes milestones.recorded",
-      "members": { "grown": "adult" },
+      "members": {
+        "grown": "adult"
+      },
       "steps": [
         {
           "action": "publish",
           "as": "grown",
           "type": "milestones.recorded",
-          "payload": { "title": "First steps", "category": "first", "occurred_date": "2025-03-17", "date_precision": "day" },
-          "expect": { "status": 201 }
+          "payload": {
+            "title": "First steps",
+            "category": "first",
+            "occurred_date": "2025-03-17",
+            "date_precision": "day",
+            "people": 1
+          },
+          "expect": {
+            "status": 201
+          }
         }
       ]
     }

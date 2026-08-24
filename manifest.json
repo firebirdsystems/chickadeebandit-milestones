@@ -1,18 +1,32 @@
 {
   "id": "milestones",
-  "contexts": ["household", "shared_space"],
+  "contexts": [
+    "household",
+    "shared_space"
+  ],
   "name": "Milestones",
   "version": "1.0.0",
-  "description": "The firsts and the once-evers — first steps, first word, first day of school, the day the dog came home, the day we got the keys. Each one keeps its date, who it was, and how old they were, on a timeline that only ever grows.",
+  "description": "The firsts and the once-evers — first steps, first word, first day of school, the day the dog came home, the day we got the keys. Each one keeps its date, who it was about, and how old they were, on a timeline that only ever grows.",
   "entrypoint": "index.html",
   "runtime": "static",
   "category": "family",
-  "tags": ["milestones", "firsts", "memories", "kids", "timeline", "family"],
+  "tags": [
+    "milestones",
+    "firsts",
+    "memories",
+    "kids",
+    "timeline",
+    "family"
+  ],
   "icon": "🌱",
-  "nav": { "label": "Milestones" },
-
+  "nav": {
+    "label": "Milestones"
+  },
   "data_access": {
-    "reads": ["family.members", "family.preferences"],
+    "reads": [
+      "family.members",
+      "family.preferences"
+    ],
     "writes": []
   },
   "permissions": {
@@ -20,13 +34,13 @@
     "requires_approval": false
   },
   "storage": "db",
-
-  "db_plaintext_columns": ["date_precision"],
-
+  "db_plaintext_columns": [
+    "date_precision"
+  ],
   "glance": {
     "source": {
       "kind": "sql",
-      "query": "SELECT m.title AS title, CASE WHEN s.member_id = '' THEN s.name ELSE 'Household member' END AS subtitle, m.occurred_date AS at FROM app_milestones__milestones m JOIN app_milestones__subjects s ON s.id = m.subject_id WHERE s.archived_at IS NULL AND m.date_precision = 'day' AND substr(m.occurred_date, 6, 5) = substr(:today, 6, 5) AND m.occurred_date < :today ORDER BY m.occurred_date DESC LIMIT 3"
+      "query": "SELECT m.title AS title, CASE WHEN COUNT(p.id) = 0 THEN 'Our household' WHEN COUNT(p.id) > 1 THEN 'Household members' WHEN MAX(p.member_id) <> '' THEN 'Household member' ELSE MAX(p.name) END AS subtitle, m.occurred_date AS at FROM app_milestones__milestones m LEFT JOIN app_milestones__milestone_people mp ON mp.milestone_id = m.id LEFT JOIN app_milestones__people p ON p.id = mp.person_id AND p.archived_at IS NULL WHERE m.date_precision = 'day' AND substr(m.occurred_date, 6, 5) = substr(:today, 6, 5) AND m.occurred_date < :today GROUP BY m.id, m.title, m.occurred_date HAVING COUNT(mp.id) = 0 OR COUNT(p.id) > 0 ORDER BY m.occurred_date DESC LIMIT 3"
     },
     "display": {
       "template": "list",
@@ -36,18 +50,26 @@
       "empty_hides": true
     }
   },
-
   "row_policies": {
-    "subjects": {
+    "people": {
       "kind": "owner_or_visibility",
       "member_column": "created_by",
       "visibility_column": "visibility",
-      "everyone_values": ["everyone"],
-      "adult_values": ["everyone", "private"],
+      "everyone_values": [
+        "everyone"
+      ],
+      "adult_values": [
+        "everyone",
+        "private"
+      ],
       "insert_privileged_only": false,
       "delete_adult_only": true,
       "column_write_acls": {
-        "archived_at": { "writable_by": ["adult"] }
+        "archived_at": {
+          "writable_by": [
+            "adult"
+          ]
+        }
       },
       "max_rows": 200
     },
@@ -55,52 +77,87 @@
       "kind": "owner_or_visibility",
       "member_column": "created_by",
       "visibility_column": "visibility",
-      "everyone_values": ["everyone"],
-      "adult_values": ["everyone", "private"],
+      "everyone_values": [
+        "everyone"
+      ],
+      "adult_values": [
+        "everyone",
+        "private"
+      ],
       "delete_adult_only": true,
-      "frozen_when": {
-        "parent_table": "subjects",
-        "fk_column": "subject_id",
-        "status_column": "archived_at",
-        "locked_values": ["archived"]
-      },
       "max_rows": 5000
+    },
+    "milestone_people": {
+      "kind": "inherit_visibility",
+      "parent_table": "milestones",
+      "fk_column": "milestone_id",
+      "writer_column": "written_by",
+      "max_rows": 20000
     }
   },
-
   "member_references": {
-    "subjects": [
-      { "column": "created_by", "on_removed": "keep" },
-      { "column": "member_id", "on_removed": "keep" }
+    "people": [
+      {
+        "column": "created_by",
+        "on_removed": "keep"
+      },
+      {
+        "column": "member_id",
+        "on_removed": "keep"
+      }
     ],
     "milestones": [
-      { "column": "created_by", "on_removed": "keep" }
+      {
+        "column": "created_by",
+        "on_removed": "keep"
+      }
+    ],
+    "milestone_people": [
+      {
+        "column": "written_by",
+        "on_removed": "keep"
+      }
     ]
   },
-
   "delete_file_list_columns": {
-    "milestones": ["file_ids"]
+    "milestones": [
+      "file_ids"
+    ]
   },
   "update_file_list_columns": {
-    "milestones": ["file_ids"]
-  },
-  "delete_cascades": {
-    "subjects": [
-      { "table": "milestones", "foreign_key": "subject_id" }
+    "milestones": [
+      "file_ids"
     ]
   },
-
-  "publishes": ["milestones.recorded"],
-  "publish_acls": {
-    "milestones.recorded": { "require_role": "member" }
+  "delete_cascades": {
+    "milestones": [
+      {
+        "table": "milestone_people",
+        "foreign_key": "milestone_id"
+      }
+    ],
+    "people": [
+      {
+        "table": "milestone_people",
+        "foreign_key": "person_id"
+      }
+    ]
   },
-
+  "publishes": [
+    "milestones.recorded"
+  ],
+  "publish_acls": {
+    "milestones.recorded": {
+      "require_role": "member"
+    }
+  },
   "ai_access": {
     "allowed": true,
     "mode": "read",
-    "db_exports": ["milestone_timeline"]
+    "db_exports": [
+      "milestone_timeline"
+    ]
   },
-
   "resource_limits": {
     "max_db_bytes": 52428800,
     "max_file_bytes": 20971520,

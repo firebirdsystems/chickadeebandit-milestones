@@ -21,12 +21,32 @@ observation row **per year** per recurring event type, and its glance only fires
 on "same day, earlier year". A single observation there returns nothing the app
 is built to give.
 
-## Two things worth knowing before you change the schema
+## Three things worth knowing before you change the schema
 
-**Subjects are not always members.** The flagship case — a baby's first steps —
+**The milestone is the spine, not a person.** "We got the keys" and "we planted
+the oak" are about the household and nobody in particular; modelling them as a
+person named *the house* is the shape this schema exists to avoid. People attach
+to a milestone through `milestone_people`, zero or many — so a first day of
+school two siblings shared is one row with two attachments, each aged
+separately, rather than two near-duplicate rows.
+
+A milestone with no attachments is a household milestone and always shows. One
+that names only archived people is hidden, which is what archiving is for — the
+glance says the same thing as `HAVING COUNT(mp.id) = 0 OR COUNT(p.id) > 0`, and
+`isVisibleMilestone()` mirrors it client-side.
+
+Every column of `milestone_people` is plaintext by suffix (`_id`, `_by`, `_at`)
+on purpose: the glance and the AI export both JOIN it, the row-policy rewriter
+fails closed on a governed table reached only through a subquery, and encrypted
+keys cannot be joined or made UNIQUE. For the same reason the glance's subtitle
+never concatenates names — `decryptAppRows` decrypts by *value*, so a
+`group_concat` of two encrypted names is no longer a ciphertext and would render
+raw bytes on the card.
+
+**People are not always members.** The flagship case — a baby's first steps —
 belongs to someone with no account, and possibly no account for a decade. So
-`subjects.member_id` is optional and `subjects.name` always carries a fallback.
-Subjects also store their own `birth_date`, because the hub strips `birthdate`
+`people.member_id` is optional and `people.name` always carries a fallback.
+People also store their own `birth_date`, because the hub strips `birthdate`
 from `family.members` for guests and inside shared spaces — and age-at-the-time
 is the whole point of the timeline.
 
@@ -42,7 +62,7 @@ year-precision milestone the household has ever recorded.
 
 ```
 manifest.json           app declaration (row policies, glance, events, file purge)
-migrations/001_init.sql subjects + milestones tables
+migrations/001_init.sql milestones + people + the milestone_people join
 src/index.html          the whole UI
 src/logic.js            pure logic — dates, ages, gates, ordering (unit tested)
 src/shared.js           test-side mirrors of the hub-sdk helpers logic.js uses

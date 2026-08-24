@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   canonicalDate, formatOccurred, ageAt, canEdit, canDelete,
-  activeSubjects, archivedSubjects, normalizeSelectedSubjectId,
-  milestonesForActiveSubjects, unsavedFileIds,
-  resolveSubject, sortTimeline, latestTimelinePage,
+  activePeople, archivedPeople, normalizeSelectedPersonId,
+  linksByMilestone, personIdsFor, isVisibleMilestone, visibleMilestonesFor,
+  filterByPerson, attachmentDelta, blockedRemovals, attachablePeople,
+  chunk, attachmentBatchPlan,
+  peopleOnMilestone, describePeople, unsavedFileIds,
+  resolvePerson, sortTimeline, latestTimelinePage,
   timelinePageFromDescending, mergeTimelineRows, onThisDay,
   searchableFields, categoryIcon, todayStr,
 } from "../src/logic.js";
@@ -125,9 +128,9 @@ describe("canEdit / canDelete mirror the row policy", () => {
   });
 });
 
-describe("activeSubjects", () => {
-  it("drops archived subjects and sorts by name", () => {
-    const out = activeSubjects([
+describe("activePeople", () => {
+  it("drops archived people and sorts by name", () => {
+    const out = activePeople([
       { id: "2", name: "Rowan" },
       { id: "3", name: "Gone", archived_at: "2024-01-01T00:00:00Z" },
       { id: "1", name: "Avery" },
@@ -136,48 +139,264 @@ describe("activeSubjects", () => {
   });
   it("does not mutate its input", () => {
     const input = [{ id: "2", name: "Rowan" }, { id: "1", name: "Avery" }];
-    activeSubjects(input);
+    activePeople(input);
     expect(input[0].name).toBe("Rowan");
   });
 });
 
-describe("archived subject state", () => {
-  const subjects = [
+describe("archived people state", () => {
+  const people = [
     { id: "b", name: "Bea" },
     { id: "z", name: "Zoe", archived_at: "2024-01-01T00:00:00Z" },
     { id: "a", name: "Ari", archived_at: "2024-01-02T00:00:00Z" },
   ];
 
-  it("lists archived subjects in name order", () => {
-    expect(archivedSubjects(subjects).map((s) => s.id)).toEqual(["a", "z"]);
+  it("lists archived people in name order", () => {
+    expect(archivedPeople(people).map((s) => s.id)).toEqual(["a", "z"]);
   });
 
-  it("preserves a valid selection and the all-subject selection", () => {
-    expect(normalizeSelectedSubjectId("b", subjects)).toBe("b");
-    expect(normalizeSelectedSubjectId("all", subjects)).toBe("all");
+  it("preserves a valid selection", () => {
+    expect(normalizeSelectedPersonId("b", people)).toBe("b");
   });
 
-  it("falls back from a stale selection to the sole active subject", () => {
-    expect(normalizeSelectedSubjectId("z", subjects)).toBe("b");
+  it("keeps the two selections that are not people", () => {
+    // "household" is a filter, not a person, so nothing can archive it away.
+    expect(normalizeSelectedPersonId("all", people)).toBe("all");
+    expect(normalizeSelectedPersonId("household", [])).toBe("household");
   });
 
-  it("falls back from a stale selection to all when several subjects remain", () => {
-    expect(normalizeSelectedSubjectId("missing", [...subjects, { id: "c", name: "Cal" }])).toBe("all");
+  it("falls back from a stale selection to everything", () => {
+    expect(normalizeSelectedPersonId("z", people)).toBe("all");
+    expect(normalizeSelectedPersonId("missing", people)).toBe("all");
   });
 });
 
-describe("milestonesForActiveSubjects", () => {
-  it("excludes milestones for archived or missing subjects", () => {
-    const subjects = [
-      { id: "live", name: "Rowan" },
-      { id: "gone", name: "Old", archived_at: "2024-01-01T00:00:00Z" },
+describe("attachments", () => {
+  const people = [
+    { id: "live", name: "Rowan" },
+    { id: "also", name: "Avery" },
+    { id: "gone", name: "Old", archived_at: "2024-01-01T00:00:00Z" },
+  ];
+  const links = [
+    { id: "l1", milestone_id: "shared", person_id: "live", written_by: "a1" },
+    { id: "l2", milestone_id: "shared", person_id: "also", written_by: "a1" },
+    { id: "l3", milestone_id: "archived-only", person_id: "gone", written_by: "a1" },
+    { id: "l4", milestone_id: "one", person_id: "live", written_by: "c1" },
+  ];
+  const index = linksByMilestone(links);
+  const rows = [
+    { id: "household" },        // no attachments at all
+    { id: "shared" },
+    { id: "archived-only" },
+    { id: "one" },
+  ];
+
+  it("groups person ids by milestone", () => {
+    expect(personIdsFor(index, "shared")).toEqual(["live", "also"]);
+    expect(personIdsFor(index, "household")).toEqual([]);
+  });
+
+  it("does not double a person seen on two cursor pages", () => {
+    const dup = linksByMilestone([...links, { id: "l1b", milestone_id: "shared", person_id: "live" }]);
+    expect(personIdsFor(dup, "shared")).toEqual(["live", "also"]);
+  });
+
+  it("always shows a milestone that is about nobody in particular", () => {
+    // The whole reason the join table exists: "we got the keys" is not a
+    // person's timeline entry and must not need a person to stay visible.
+    expect(isVisibleMilestone({ id: "household" }, index, people)).toBe(true);
+  });
+
+  it("hides a milestone once every person it names is archived", () => {
+    expect(isVisibleMilestone({ id: "archived-only" }, index, people)).toBe(false);
+  });
+
+  it("keeps a milestone that still names someone active", () => {
+    const half = linksByMilestone([
+      { id: "x", milestone_id: "m", person_id: "live" },
+      { id: "y", milestone_id: "m", person_id: "gone" },
+    ]);
+    expect(isVisibleMilestone({ id: "m" }, half, people)).toBe(true);
+  });
+
+  it("filters the timeline to one chip", () => {
+    const shown = visibleMilestonesFor(rows, index, people);
+    expect(shown.map((m) => m.id)).toEqual(["household", "shared", "one"]);
+    expect(filterByPerson(shown, index, "all").map((m) => m.id)).toEqual(["household", "shared", "one"]);
+    expect(filterByPerson(shown, index, "household").map((m) => m.id)).toEqual(["household"]);
+    expect(filterByPerson(shown, index, "also").map((m) => m.id)).toEqual(["shared"]);
+  });
+});
+
+describe("attachmentDelta", () => {
+  const current = [
+    { id: "l1", person_id: "a", written_by: "a1" },
+    { id: "l2", person_id: "b", written_by: "a1" },
+  ];
+
+  it("adds only what is new and removes only what is gone", () => {
+    const out = attachmentDelta(current, ["b", "c"]);
+    expect(out.add).toEqual(["c"]);
+    expect(out.remove.map((l) => l.id)).toEqual(["l1"]);
+  });
+
+  it("removes everything when a milestone becomes a household one", () => {
+    expect(attachmentDelta(current, []).remove.map((l) => l.id)).toEqual(["l1", "l2"]);
+  });
+
+  it("is a no-op when nothing changed", () => {
+    expect(attachmentDelta(current, ["a", "b"])).toEqual({ add: [], remove: [] });
+  });
+
+  it("returns rows, not ids, so the caller can read written_by", () => {
+    expect(attachmentDelta(current, []).remove[0].written_by).toBe("a1");
+  });
+});
+
+describe("attachablePeople", () => {
+  const people = [
+    { id: "live", name: "Rowan" },
+    { id: "also", name: "Avery" },
+    { id: "gone", name: "Old", archived_at: "2024-01-01T00:00:00Z" },
+    { id: "other-gone", name: "Older", archived_at: "2024-01-01T00:00:00Z" },
+  ];
+
+  it("offers the active people, name-ordered", () => {
+    expect(attachablePeople(people, []).map((e) => e.person.id)).toEqual(["also", "live"]);
+  });
+
+  it("also offers an archived person this milestone already names", () => {
+    // Without this the archived attachment would have no checkbox, submitting
+    // would read it as unticked, and the association would be lost for good —
+    // restoring the person would not bring it back.
+    const out = attachablePeople(people, ["gone"]);
+    expect(out.map((e) => e.person.id)).toEqual(["also", "gone", "live"]);
+    expect(out.find((e) => e.person.id === "gone").archived).toBe(true);
+    expect(out.find((e) => e.person.id === "live").archived).toBe(false);
+  });
+
+  it("does not offer an archived person this milestone does not name", () => {
+    expect(attachablePeople(people, ["gone"]).some((e) => e.person.id === "other-gone")).toBe(false);
+  });
+
+  it("keeps an archived attachment through an unrelated edit", () => {
+    // The form pre-ticks every attached id, so a save that changed only the
+    // title submits the same set back and the delta is empty.
+    const attached = ["live", "gone"];
+    const ticked = attachablePeople(people, attached)
+      .filter((e) => attached.includes(e.person.id))
+      .map((e) => e.person.id);
+    const current = attached.map((id) => ({ id: `l-${id}`, person_id: id, written_by: "a1" }));
+    expect(attachmentDelta(current, ticked)).toEqual({ add: [], remove: [] });
+  });
+
+  it("still lets an archived attachment be removed on purpose", () => {
+    const current = [
+      { id: "l-live", person_id: "live", written_by: "a1" },
+      { id: "l-gone", person_id: "gone", written_by: "a1" },
     ];
-    const rows = [
-      { id: "shown", subject_id: "live" },
-      { id: "archived", subject_id: "gone" },
-      { id: "orphan", subject_id: "missing" },
-    ];
-    expect(milestonesForActiveSubjects(rows, subjects).map((m) => m.id)).toEqual(["shown"]);
+    expect(attachmentDelta(current, ["live"]).remove.map((l) => l.id)).toEqual(["l-gone"]);
+  });
+});
+
+describe("attachmentBatchPlan", () => {
+  // The numbers the app actually uses: D1 rejects a statement carrying more
+  // than ~100 bound parameters, and an attachment row costs five of them.
+  const MAX = 90;
+  const COLS = 5;
+  const ids = (n, prefix) => Array.from({ length: n }, (_, i) => `${prefix}${i}`);
+
+  it("splits a list into consecutive groups", () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+    expect(chunk([], 2)).toEqual([]);
+  });
+
+  it("leaves an ordinary milestone as a single group of each", () => {
+    const plan = attachmentBatchPlan(ids(3, "a"), ids(2, "r"), MAX, COLS);
+    expect(plan.insertGroups).toHaveLength(1);
+    expect(plan.removalGroups).toHaveLength(1);
+  });
+
+  it("never builds an insert past the parameter budget", () => {
+    // 21 additions is 105 bound parameters in one statement — over the limit,
+    // and the app allows up to 200 people on one milestone.
+    const plan = attachmentBatchPlan(ids(200, "a"), [], MAX, COLS);
+    for (const group of plan.insertGroups) {
+      expect(group.length * COLS).toBeLessThanOrEqual(MAX);
+    }
+    expect(plan.insertGroups.flat()).toEqual(ids(200, "a"));
+  });
+
+  it("never builds a removal past the parameter budget", () => {
+    const plan = attachmentBatchPlan([], ids(200, "r"), MAX, COLS);
+    for (const group of plan.removalGroups) {
+      expect(group.length).toBeLessThanOrEqual(MAX);
+    }
+    expect(plan.removalGroups.flat()).toEqual(ids(200, "r"));
+  });
+
+  it("loses nothing and reorders nothing when it splits", () => {
+    const plan = attachmentBatchPlan(ids(47, "a"), ids(131, "r"), MAX, COLS);
+    expect(plan.insertGroups.flat()).toEqual(ids(47, "a"));
+    expect(plan.removalGroups.flat()).toEqual(ids(131, "r"));
+  });
+});
+
+describe("blockedRemovals", () => {
+  const mine   = { id: "l1", person_id: "a", written_by: "c1" };
+  const theirs = { id: "l2", person_id: "b", written_by: "a1" };
+
+  it("lets an adult remove anyone's attachment", () => {
+    expect(blockedRemovals([mine, theirs], ADULT)).toEqual([]);
+  });
+
+  it("lets a child remove the ones they wrote", () => {
+    expect(blockedRemovals([mine], CHILD)).toEqual([]);
+  });
+
+  it("catches the row policy a child's DELETE would silently miss", () => {
+    // canEdit lets the author of a milestone edit it; inherit_visibility lets a
+    // non-adult delete only rows they wrote. Where the two disagree the DELETE
+    // matches nothing instead of failing, so this is pre-flighted.
+    expect(blockedRemovals([mine, theirs], CHILD).map((l) => l.id)).toEqual(["l2"]);
+  });
+});
+
+describe("peopleOnMilestone / describePeople", () => {
+  const members = [{ id: "m1", name: "Rowan Reyes" }];
+  const people = [
+    { id: "p1", member_id: "m1", name: "Rowan", birth_date: "2019-04-02" },
+    { id: "p2", member_id: "", name: "Avery", birth_date: "2016-01-10" },
+    { id: "p3", member_id: "", name: "Gone", birth_date: "", archived_at: "2024-01-01T00:00:00Z" },
+  ];
+  const milestone = { id: "m", occurred_date: "2024-09-03", date_precision: "day" };
+  const index = linksByMilestone([
+    { id: "l1", milestone_id: "m", person_id: "p1" },
+    { id: "l2", milestone_id: "m", person_id: "p2" },
+    { id: "l3", milestone_id: "m", person_id: "p3" },
+  ]);
+
+  it("ages each person separately", () => {
+    // The point of attaching more than one: siblings share a first day of
+    // school and were not the same age on it.
+    expect(peopleOnMilestone(milestone, index, people, members)).toEqual([
+      { id: "p2", name: "Avery", age: "8 years old" },
+      { id: "p1", name: "Rowan Reyes", age: "5 years old" },
+    ]);
+  });
+
+  it("drops archived people from the entry", () => {
+    expect(peopleOnMilestone(milestone, index, people, members).some((e) => e.id === "p3")).toBe(false);
+  });
+
+  it("reads as a list, and as nothing at all for a household milestone", () => {
+    expect(describePeople(peopleOnMilestone(milestone, index, people, members)))
+      .toBe("Avery, 8 years old · Rowan Reyes, 5 years old");
+    expect(describePeople([])).toBe("");
+  });
+
+  it("names someone with no birthday without inventing an age", () => {
+    expect(describePeople([{ id: "x", name: "Rowan", age: "" }])).toBe("Rowan");
   });
 });
 
@@ -191,28 +410,28 @@ describe("attachment lifecycle", () => {
 
 });
 
-describe("resolveSubject", () => {
+describe("resolvePerson", () => {
   const members = [{ id: "m1", name: "Rowan Reyes", birthdate: "2019-04-02" }];
 
   it("prefers the roster name so a rename propagates", () => {
     const s = { member_id: "m1", name: "Rowan", birth_date: "" };
-    expect(resolveSubject(s, members).name).toBe("Rowan Reyes");
+    expect(resolvePerson(s, members).name).toBe("Rowan Reyes");
   });
-  it("falls back to the stored name for a subject with no account", () => {
+  it("falls back to the stored name for someone with no account", () => {
     const s = { member_id: "", name: "Baby", birth_date: "2024-01-05" };
-    expect(resolveSubject(s, members).name).toBe("Baby");
+    expect(resolvePerson(s, members).name).toBe("Baby");
   });
   it("prefers the locally stored birth date, which survives the guest strip", () => {
     const s = { member_id: "m1", name: "Rowan", birth_date: "2019-04-02" };
-    expect(resolveSubject(s, members).birthDate).toBe("2019-04-02");
+    expect(resolvePerson(s, members).birthDate).toBe("2019-04-02");
   });
   it("falls back to the roster birthdate when there is no local one", () => {
     const s = { member_id: "m1", name: "Rowan", birth_date: "" };
-    expect(resolveSubject(s, members).birthDate).toBe("2019-04-02");
+    expect(resolvePerson(s, members).birthDate).toBe("2019-04-02");
   });
   it("yields no birth date when the roster stripped it and none is stored", () => {
     const s = { member_id: "m1", name: "Rowan", birth_date: "" };
-    expect(resolveSubject(s, [{ id: "m1", name: "Rowan Reyes" }]).birthDate).toBe("");
+    expect(resolvePerson(s, [{ id: "m1", name: "Rowan Reyes" }]).birthDate).toBe("");
   });
 });
 
@@ -300,9 +519,12 @@ describe("onThisDay", () => {
 });
 
 describe("searchableFields", () => {
-  it("includes the title, note and subject name", () => {
-    const f = searchableFields({ title: "First steps", note: "in the hallway" }, "Rowan");
-    expect(f).toEqual(["First steps", "in the hallway", "Rowan"]);
+  it("includes the title, note and every attached name", () => {
+    const f = searchableFields({ title: "First steps", note: "in the hallway" }, ["Rowan", "Avery"]);
+    expect(f).toEqual(["First steps", "in the hallway", "Rowan", "Avery"]);
+  });
+  it("matches on the title alone for a household milestone", () => {
+    expect(searchableFields({ title: "We got the keys", note: "" })).toEqual(["We got the keys", ""]);
   });
 });
 
