@@ -1,0 +1,109 @@
+{
+  "id": "milestones",
+  "contexts": ["household", "shared_space"],
+  "name": "Milestones",
+  "version": "1.0.0",
+  "description": "The firsts and the once-evers — first steps, first word, first day of school, the day the dog came home, the day we got the keys. Each one keeps its date, who it was, and how old they were, on a timeline that only ever grows.",
+  "entrypoint": "index.html",
+  "runtime": "static",
+  "category": "family",
+  "tags": ["milestones", "firsts", "memories", "kids", "timeline", "family"],
+  "icon": "🌱",
+  "nav": { "label": "Milestones" },
+
+  "data_access": {
+    "reads": ["family.members", "family.preferences"],
+    "writes": []
+  },
+  "permissions": {
+    "default_audience": "everyone",
+    "requires_approval": false
+  },
+  "storage": "db",
+
+  "db_plaintext_columns": ["date_precision"],
+
+  "glance": {
+    "source": {
+      "kind": "sql",
+      "query": "SELECT m.title AS title, CASE WHEN s.member_id = '' THEN s.name ELSE 'Household member' END AS subtitle, m.occurred_date AS at FROM app_milestones__milestones m JOIN app_milestones__subjects s ON s.id = m.subject_id WHERE s.archived_at IS NULL AND m.date_precision = 'day' AND substr(m.occurred_date, 6, 5) = substr(:today, 6, 5) AND m.occurred_date < :today ORDER BY m.occurred_date DESC LIMIT 3"
+    },
+    "display": {
+      "template": "list",
+      "title": "title",
+      "subtitle": "subtitle",
+      "when": "at",
+      "empty_hides": true
+    }
+  },
+
+  "row_policies": {
+    "subjects": {
+      "kind": "owner_or_visibility",
+      "member_column": "created_by",
+      "visibility_column": "visibility",
+      "everyone_values": ["everyone"],
+      "adult_values": ["everyone", "private"],
+      "insert_privileged_only": false,
+      "delete_adult_only": true,
+      "column_write_acls": {
+        "archived_at": { "writable_by": ["adult"] }
+      },
+      "max_rows": 200
+    },
+    "milestones": {
+      "kind": "owner_or_visibility",
+      "member_column": "created_by",
+      "visibility_column": "visibility",
+      "everyone_values": ["everyone"],
+      "adult_values": ["everyone", "private"],
+      "delete_adult_only": true,
+      "frozen_when": {
+        "parent_table": "subjects",
+        "fk_column": "subject_id",
+        "status_column": "archived_at",
+        "locked_values": ["archived"]
+      },
+      "max_rows": 5000
+    }
+  },
+
+  "member_references": {
+    "subjects": [
+      { "column": "created_by", "on_removed": "keep" },
+      { "column": "member_id", "on_removed": "keep" }
+    ],
+    "milestones": [
+      { "column": "created_by", "on_removed": "keep" }
+    ]
+  },
+
+  "delete_file_list_columns": {
+    "milestones": ["file_ids"]
+  },
+  "update_file_list_columns": {
+    "milestones": ["file_ids"]
+  },
+  "delete_cascades": {
+    "subjects": [
+      { "table": "milestones", "foreign_key": "subject_id" }
+    ]
+  },
+
+  "publishes": ["milestones.recorded"],
+  "publish_acls": {
+    "milestones.recorded": { "require_role": "member" }
+  },
+
+  "ai_access": {
+    "allowed": true,
+    "mode": "read",
+    "db_exports": ["milestone_timeline"]
+  },
+
+  "resource_limits": {
+    "max_db_bytes": 52428800,
+    "max_file_bytes": 20971520,
+    "max_files_bytes": 1073741824
+  }
+}

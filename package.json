@@ -1,0 +1,16 @@
+{
+  "name": "chickadee-milestones",
+  "version": "1.0.0",
+  "description": "A permanent timeline of firsts and once-evers",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "node dev.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

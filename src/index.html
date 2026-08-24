@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Milestones</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: var(--hub-bg, #f9fafb);
+      --surface: var(--hub-surface, #ffffff);
+      --border: var(--hub-border, #e5e7eb);
+      --border-mid: var(--hub-border, #d1d5db);
+      --text: var(--hub-text, #000000);
+      --muted: var(--hub-text-muted, #6b7280);
+      --accent: var(--hub-primary, #111827);
+      --accent-hover: var(--hub-primary-hover, #374151);
+      --accent-fg: var(--hub-primary-fg, #ffffff);
+      --radius: var(--hub-radius, 8px);
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --shadow: 0 1px 3px rgba(15, 23, 42, .07);
+    }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      font-size: var(--hub-font-size, 15px);
+      line-height: 1.5;
+    }
+    .app { max-width: 680px; margin: 0 auto; padding: 16px; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    h1 { font-size: 1.35rem; line-height: 1.2; }
+    h2 { font-size: .95rem; }
+    .muted { color: var(--muted); }
+    .tiny { font-size: .78rem; }
+    .stack { display: grid; gap: 10px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px;
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid transparent; border-radius: 8px; padding: 8px 12px;
+      font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer;
+      min-height: 38px; background: var(--accent); color: var(--accent-fg);
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: .48; cursor: default; }
+    .btn-sm { min-height: 30px; padding: 4px 8px; font-size: .78rem; }
+    .btn-ghost { background: transparent; color: var(--text); border-color: var(--border-mid); }
+    .btn-ghost:hover { background: var(--bg); }
+    .btn-quiet {
+      min-height: 28px; padding: 3px 8px; background: transparent; color: var(--muted);
+      border: 0; font-size: .76rem; font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .btn-quiet:hover { background: var(--bg); color: var(--text); }
+    .btn-quiet-danger { min-height: 28px; padding: 3px 8px; background: transparent; color: var(--muted);
+      border: 0; font-size: .76rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+    .btn-quiet-danger:hover { background: var(--red-soft); color: var(--red); }
+
+    /* Subject chips */
+    .subjects { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .subject-control { display: inline-flex; align-items: center; gap: 2px; }
+    .archived-subjects { margin: -4px 0 12px; color: var(--muted); }
+    .archived-subjects summary { cursor: pointer; font-size: 13px; }
+    .archived-subject-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+      border: 1.5px solid var(--border-mid); background: var(--surface); color: var(--text);
+      border-radius: 999px; padding: 5px 12px; font: inherit; font-size: .82rem; font-weight: 700;
+    }
+    .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+    /* Timeline */
+    .year-head {
+      display: flex; align-items: center; gap: 10px;
+      margin: 18px 0 8px; font-size: .78rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
+    }
+    .year-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .entry { display: flex; gap: 12px; }
+    .entry-rail { display: flex; flex-direction: column; align-items: center; width: 32px; flex: none; }
+    .entry-dot {
+      width: 30px; height: 30px; flex: none; border-radius: 50%;
+      display: grid; place-items: center; font-size: .95rem;
+      background: var(--surface); border: 1.5px solid var(--border-mid);
+    }
+    .entry-line { flex: 1; width: 2px; background: var(--border); margin: 4px 0 -10px; }
+    .entry-body { flex: 1; min-width: 0; padding-bottom: 10px; }
+    .entry-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .entry-title { font-weight: 700; }
+    .entry-meta { margin-top: 1px; color: var(--muted); font-size: .8rem; }
+    .entry-note { margin-top: 5px; white-space: pre-wrap; }
+    .age { font-weight: 700; color: var(--text); }
+    .photos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .photos img { width: 84px; height: 84px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+
+    .banner {
+      background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+      border-radius: var(--radius); padding: 11px 13px; margin-bottom: 12px;
+    }
+    .banner h2 { font-size: .74rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 4px; }
+
+    /* Forms + modal */
+    .form { display: grid; gap: 10px; }
+    .field { display: grid; gap: 4px; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; min-width: 0; }
+    label { font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; }
+    input, textarea, select {
+      width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px;
+      padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text);
+    }
+    textarea { min-height: 64px; resize: vertical; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+    .search-row { margin-bottom: 12px; }
+    .search-input { width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px; padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text); }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+    .empty, .loading { color: var(--muted); text-align: center; padding: 28px 16px; }
+    .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
+      display: grid; place-items: center; padding: 16px; z-index: 50; overflow-y: auto;
+    }
+    .modal {
+      background: var(--surface); border-radius: var(--radius); padding: 16px;
+      width: 100%; max-width: 440px; box-shadow: 0 10px 34px rgba(15, 23, 42, .22);
+    }
+    .modal h2 { margin-bottom: 12px; font-size: 1.05rem; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    .hint { font-size: .76rem; color: var(--muted); }
+  </style>
+  <base href="/run/milestones/">
+</head>
+<body>
+<div class="app">
+  <div id="root" class="loading">Loading…</div>
+</div>
+
+<script type="module">
+import { esc, hubConfirm, hubAlert, createFilesHelper, searchMatch } from "/hub-sdk.js";
+import {
+  CATEGORIES, categoryIcon, canonicalDate, formatOccurred, ageAt,
+  canEdit as _canEdit, canDelete as _canDelete, activeSubjects, archivedSubjects,
+  normalizeSelectedSubjectId, milestonesForActiveSubjects,
+  unsavedFileIds, resolveSubject,
+  sortTimeline, latestTimelinePage, timelinePageFromDescending, mergeTimelineRows,
+  onThisDay, searchableFields, todayStr,
+} from "./logic.js";
+// searchMatch comes from the SDK, not from logic.js: shared.js carries a
+// simplified mirror so the pure logic stays testable in node, but the browser
+// must use the hub's real matcher (diacritic folding, token-AND) so in-app
+// search behaves the same way it does everywhere else in the product.
+
+// --- Hub runtime globals (empty in demo mode) --------------------------------
+const CONTEXT    = window.__CONTEXT_URL ?? "";
+const DB         = window.__DB_URL ?? "";
+const FILES      = window.__FILES_URL ?? "";
+const APP_ID     = window.__APP_ID ?? "milestones";
+const EVENTS_URL = window.__EVENTS_URL ?? "/api/events";
+const ME         = window.__CURRENT_MEMBER ?? null;
+
+const files = createFilesHelper(FILES);
+const TIMELINE_PAGE_SIZE = 100;
+
+// --- App state ---------------------------------------------------------------
+let members = [];
+let memberById = new Map();
+let me = null;
+let householdTimeZone = "";
+let subjects = [];
+let milestones = [];
+let anniversaryMilestones = [];
+let timelineCursor = null;
+let hasEarlierMilestones = false;
+let earlierLoadPromise = null;
+let searchLoading = false;
+let ready = false;
+let selectedSubjectId = "all";
+let searchQ = "";
+let timelineLimit = TIMELINE_PAGE_SIZE;
+let error = "";
+let modalEl = null;
+let pendingFiles = [];   // { id, url, isNew } uploaded or already saved for the open form
+let uploadSession = 0;   // invalidates uploads that finish after their modal closes
+let uploadsInFlight = 0;
+
+function nowIso() { return new Date().toISOString(); }
+function canEdit(row) { return _canEdit(row, me); }
+function canDelete(row) { return _canDelete(row, me); }
+function canArchive(row) { return Boolean(row) && canDelete(row); }
+function subjectById(id) { return subjects.find((s) => s.id === id) ?? null; }
+function subjectInfo(id) { return resolveSubject(subjectById(id), members); }
+function syncAnniversaryRow(row) {
+  const today = todayStr(new Date(), householdTimeZone);
+  anniversaryMilestones = onThisDay(mergeTimelineRows(anniversaryMilestones, [row]), today);
+}
+
+async function db(sql, params = []) {
+  if (!DB) return { rows: [], changed: 1 };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new Error(json.error || `Database request failed: ${res.status}`);
+  return json;
+}
+
+// --- Loading -----------------------------------------------------------------
+async function loadMembers() {
+  if (!CONTEXT) {
+    householdTimeZone = "";
+    members = [
+      { id: "demo-1", name: "Alex", role: "adult" },
+      { id: "demo-2", name: "Rowan", role: "child", birthdate: "2019-04-02" },
+    ];
+  } else {
+    const res = await fetch(`${CONTEXT}?keys=family.members,family.preferences`);
+    if (!res.ok) throw new Error(`Household context could not be loaded (${res.status}). Refresh before making changes.`);
+    const context = await res.json();
+    members = context["family.members"] ?? [];
+    householdTimeZone = context["family.preferences"]?.timezone ?? "";
+    if (!householdTimeZone) {
+      throw new Error("The household timezone is unavailable. Refresh before making changes.");
+    }
+    try {
+      todayStr(new Date(), householdTimeZone);
+    } catch {
+      throw new Error("The household timezone is invalid. Update it in household settings before making changes.");
+    }
+  }
+  memberById = new Map(members.map((m) => [m.id, m]));
+  me = ME ?? members[0] ?? { id: "guest", name: "Guest", role: "adult" };
+}
+
+async function fetchMilestonePage(cursor = null) {
+  const result = cursor
+    ? await db(
+      `SELECT * FROM app_milestones__milestones
+        WHERE (occurred_date < ?
+           OR (occurred_date = ? AND created_at < ?)
+           OR (occurred_date = ? AND created_at = ? AND id < ?))
+        ORDER BY occurred_date DESC, created_at DESC, id DESC LIMIT ?`,
+      [cursor.occurred_date, cursor.occurred_date, cursor.created_at,
+       cursor.occurred_date, cursor.created_at, cursor.id, TIMELINE_PAGE_SIZE + 1],
+    )
+    : await db(
+      "SELECT * FROM app_milestones__milestones ORDER BY occurred_date DESC, created_at DESC, id DESC LIMIT ?",
+      [TIMELINE_PAGE_SIZE + 1],
+    );
+  return timelinePageFromDescending(result.rows ?? [], TIMELINE_PAGE_SIZE);
+}
+
+async function loadEarlierMilestones() {
+  if (!hasEarlierMilestones || !timelineCursor) return;
+  if (earlierLoadPromise) return earlierLoadPromise;
+  earlierLoadPromise = (async () => {
+    const page = await fetchMilestonePage(timelineCursor);
+    milestones = mergeTimelineRows(milestones, page.items);
+    timelineCursor = page.cursor;
+    hasEarlierMilestones = page.hasEarlier;
+  })();
+  try {
+    await earlierLoadPromise;
+  } finally {
+    earlierLoadPromise = null;
+  }
+}
+
+async function loadAllMilestonesForSearch() {
+  while (hasEarlierMilestones) await loadEarlierMilestones();
+}
+
+async function loadAnniversaryMilestones() {
+  const today = todayStr(new Date(), householdTimeZone);
+  const result = await db(
+    `SELECT * FROM app_milestones__milestones
+      WHERE date_precision = 'day'
+        AND substr(occurred_date, 6, 5) = ?
+        AND occurred_date < ?
+      ORDER BY occurred_date, created_at, id LIMIT 5000`,
+    [today.slice(5), today],
+  );
+  return result.rows ?? [];
+}
+
+async function loadData() {
+  if (!DB) {
+    // Demo-mode fallback so the app renders with no hub attached.
+    subjects = [
+      { id: "demo-s1", member_id: "demo-2", name: "Rowan", birth_date: "2019-04-02", icon: "🌱",
+        visibility: "everyone", archived_at: null, created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+    ];
+    milestones = [
+      { id: "demo-m1", subject_id: "demo-s1", title: "First steps", note: "Down the hallway, straight at the dog.",
+        category: "first", occurred_date: "2020-03-17", date_precision: "day", file_ids: "[]",
+        visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+      { id: "demo-m2", subject_id: "demo-s1", title: "First day of school", note: "",
+        category: "school", occurred_date: "2024-09-03", date_precision: "day", file_ids: "[]",
+        visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+    ];
+    anniversaryMilestones = milestones;
+    timelineCursor = null;
+    hasEarlierMilestones = false;
+    return;
+  }
+  const [s, page, anniversaries] = await Promise.all([
+    db("SELECT * FROM app_milestones__subjects ORDER BY created_at"),
+    fetchMilestonePage(),
+    loadAnniversaryMilestones(),
+  ]);
+  subjects = s.rows;
+  milestones = page.items;
+  timelineCursor = page.cursor;
+  hasEarlierMilestones = page.hasEarlier;
+  anniversaryMilestones = anniversaries;
+}
+
+async function refresh() {
+  error = "";
+  ready = false;
+  render();
+  try {
+    await loadMembers();
+    await loadData();
+    selectedSubjectId = normalizeSelectedSubjectId(selectedSubjectId, subjects);
+    timelineLimit = TIMELINE_PAGE_SIZE;
+    ready = true;
+  } catch (e) {
+    error = e.message;
+    members = [];
+    memberById = new Map();
+    subjects = [];
+    milestones = [];
+    anniversaryMilestones = [];
+    householdTimeZone = "";
+  }
+  render();
+}
+
+// --- Writes ------------------------------------------------------------------
+function requireSingleChange(result, conflictMessage) {
+  if (DB && result.changed !== 1) throw new Error(conflictMessage);
+}
+
+async function requireActiveSubject(subjectId) {
+  if (!DB) {
+    const subject = subjectById(subjectId);
+    if (!subject || subject.archived_at) throw new Error("That person is no longer active. Refresh and choose someone else.");
+    return;
+  }
+  const result = await db(
+    "SELECT id FROM app_milestones__subjects WHERE id = ? AND archived_at IS NULL LIMIT 1",
+    [subjectId],
+  );
+  if (!result.rows?.length) {
+    throw new Error("That person was archived or changed in another session. Refresh and choose someone else.");
+  }
+}
+
+async function saveSubject(fields, existingId) {
+  const now = nowIso();
+  if (existingId) {
+    const existing = subjectById(existingId);
+    if (!canEdit(existing)) throw new Error("You cannot edit this person.");
+    const result = await db(
+      "UPDATE app_milestones__subjects SET member_id = ?, name = ?, birth_date = ?, icon = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
+      [fields.member_id, fields.name, fields.birth_date, fields.icon, now, existingId, existing.updated_at],
+    );
+    requireSingleChange(result, "This person changed in another session. Refresh before saving your changes.");
+    const i = subjects.findIndex((s) => s.id === existingId);
+    if (i !== -1) subjects[i] = { ...subjects[i], ...fields, updated_at: now };
+    return existingId;
+  }
+  const row = {
+    id: crypto.randomUUID(), member_id: fields.member_id, name: fields.name,
+    birth_date: fields.birth_date, icon: fields.icon, visibility: "everyone",
+    archived_at: null, created_by: me.id, created_at: now, updated_at: now,
+  };
+  await db(
+    `INSERT INTO app_milestones__subjects
+       (id, member_id, name, birth_date, icon, visibility, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.id, row.member_id, row.name, row.birth_date, row.icon, row.visibility, row.created_by, row.created_at, row.updated_at],
+  );
+  subjects = [...subjects, row];
+  return row.id;
+}
+
+async function archiveSubject(id) {
+  const row = subjectById(id);
+  if (!row) return;
+  if (!canArchive(row)) { error = "Only adults can archive someone."; return render(); }
+  const ok = await hubConfirm({
+    message: `Archive ${resolveSubject(row, members).name || "this person"}?`,
+    description: "Their milestones will be kept, but hidden from the app and its anniversary surfaces.",
+    confirmLabel: "Archive",
+    destructive: true,
+  });
+  if (!ok) return;
+  try {
+    const now = nowIso();
+    const result = await db(
+      "UPDATE app_milestones__subjects SET archived_at = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
+      ["archived", now, id, row.updated_at],
+    );
+    requireSingleChange(result, "This person changed in another session. Refresh before archiving.");
+    const i = subjects.findIndex((s) => s.id === id);
+    if (i !== -1) subjects[i] = { ...subjects[i], archived_at: "archived", updated_at: now };
+    selectedSubjectId = "all";
+    closeModal();
+    render();
+  } catch (e) {
+    error = e.message;
+    render();
+  }
+}
+
+async function restoreSubject(id) {
+  const row = subjectById(id);
+  if (!row || !row.archived_at) return;
+  if (!canArchive(row)) { error = "Only adults can restore someone."; return render(); }
+  try {
+    const now = nowIso();
+    const result = await db(
+      "UPDATE app_milestones__subjects SET archived_at = NULL, updated_at = ? WHERE id = ? AND updated_at = ?",
+      [now, id, row.updated_at],
+    );
+    requireSingleChange(result, "This person changed in another session. Refresh before restoring.");
+    const i = subjects.findIndex((s) => s.id === id);
+    if (i !== -1) subjects[i] = { ...subjects[i], archived_at: null, updated_at: now };
+    selectedSubjectId = id;
+    error = "";
+    render();
+  } catch (e) {
+    error = e.message;
+    render();
+  }
+}
+
+async function deleteFilesBestEffort(ids) {
+  await Promise.allSettled(ids.filter(Boolean).map((id) => files.delete(id)));
+}
+
+async function saveMilestone(fields, existingId) {
+  await requireActiveSubject(fields.subject_id);
+  const now = nowIso();
+  const fileIds = JSON.stringify(pendingFiles.map((f) => f.id));
+
+  if (existingId) {
+    const existing = milestones.find((m) => m.id === existingId);
+    if (!canEdit(existing)) throw new Error("You cannot edit this milestone.");
+    const result = await db(
+      `UPDATE app_milestones__milestones
+         SET subject_id = ?, title = ?, note = ?, category = ?,
+             occurred_date = ?, date_precision = ?, file_ids = ?, updated_at = ?
+       WHERE id = ? AND updated_at = ?`,
+      [fields.subject_id, fields.title, fields.note, fields.category,
+       fields.occurred_date, fields.date_precision, fileIds, now, existingId, existing.updated_at],
+    );
+    requireSingleChange(result, "This milestone changed in another session. Refresh before saving your changes.");
+    const i = milestones.findIndex((m) => m.id === existingId);
+    if (i !== -1) {
+      milestones[i] = { ...milestones[i], ...fields, file_ids: fileIds, updated_at: now };
+      syncAnniversaryRow(milestones[i]);
+    }
+    return { publishWarning: "" };
+  }
+
+  const row = {
+    id: crypto.randomUUID(), ...fields, file_ids: fileIds, visibility: "everyone",
+    created_by: me.id, created_at: now, updated_at: now,
+  };
+  await db(
+    `INSERT INTO app_milestones__milestones
+       (id, subject_id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [row.id, row.subject_id, row.title, row.note, row.category, row.occurred_date,
+     row.date_precision, row.file_ids, row.visibility, row.created_by, row.created_at, row.updated_at],
+  );
+  milestones = [...milestones, row];
+  syncAnniversaryRow(row);
+
+  let publishWarning = "";
+  if (DB) {
+    try {
+      const res = await fetch(EVENTS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          source_app_id: APP_ID,
+          type: "milestones.recorded",
+          subject_id: subjectById(row.subject_id)?.member_id || null,
+          payload: {
+            title: row.title,
+            category: row.category,
+            occurred_date: row.occurred_date,
+            date_precision: row.date_precision,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Event request failed: ${res.status}`);
+      }
+    } catch (e) {
+      publishWarning = e.message;
+    }
+  }
+  return { publishWarning };
+}
+
+async function deleteMilestone(id) {
+  const row = milestones.find((m) => m.id === id);
+  if (!row) return;
+  if (!canDelete(row)) { error = "Only adults can remove a milestone."; return render(); }
+  const ok = await hubConfirm({
+    message: "Remove this milestone?",
+    description: "A milestone is meant to be permanent. This cannot be undone.",
+    confirmLabel: "Remove",
+    destructive: true,
+  });
+  if (!ok) return;
+  try {
+    const result = await db(
+      "DELETE FROM app_milestones__milestones WHERE id = ? AND updated_at = ?",
+      [id, row.updated_at],
+    );
+    requireSingleChange(result, "This milestone changed in another session. Refresh before removing it.");
+    milestones = milestones.filter((m) => m.id !== id);
+    anniversaryMilestones = anniversaryMilestones.filter((m) => m.id !== id);
+    // The manifest's delete_file_list_columns records durable cleanup after
+    // commit and rechecks references before deleting shared bytes.
+    render();
+  } catch (e) {
+    error = e.message;
+    render();
+  }
+}
+
+function parseFileIds(row) {
+  try {
+    const v = JSON.parse(row.file_ids ?? "[]");
+    return Array.isArray(v) ? v : [];
+  } catch { return []; }
+}
+
+// --- Modal -------------------------------------------------------------------
+function openModal(html) {
+  closeModal();
+  modalEl = document.createElement("div");
+  modalEl.className = "modal-backdrop";
+  modalEl.innerHTML = `<div class="modal">${html}</div>`;
+  modalEl.addEventListener("click", (e) => { if (e.target === modalEl) closeModal(); });
+  document.body.appendChild(modalEl);
+  modalEl.querySelector("[data-autofocus]")?.focus();
+}
+function closeModal({ keepNewUploads = false } = {}) {
+  uploadSession += 1;
+  uploadsInFlight = 0;
+  if (!keepNewUploads) {
+    void deleteFilesBestEffort(unsavedFileIds(pendingFiles));
+  }
+  modalEl?.remove();
+  modalEl = null;
+  pendingFiles = [];
+}
+
+function subjectForm(existing) {
+  const linked = existing?.member_id ?? "";
+  return `
+    <h2>${existing ? "Edit" : "Add"} someone</h2>
+    <form class="form" id="subject-form" data-id="${esc(existing?.id ?? "")}">
+      <div class="field">
+        <label for="s-name">Name</label>
+        <input id="s-name" name="name" data-autofocus value="${esc(existing?.name ?? "")}"
+               placeholder="Rowan" required maxlength="80" />
+      </div>
+      <div class="field">
+        <label for="s-member">Household member</label>
+        <select id="s-member" name="member_id">
+          <option value="">Not on the roster (a baby, a pet, the house)</option>
+          ${members.map((m) => `<option value="${esc(m.id)}"${m.id === linked ? " selected" : ""}>${esc(m.name)}</option>`).join("")}
+        </select>
+        <p class="hint">Linking keeps the name in step with the roster.</p>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="s-birth">Born</label>
+          <input id="s-birth" name="birth_date" type="date" value="${esc(existing?.birth_date ?? "")}" />
+        </div>
+        <div class="field">
+          <label for="s-icon">Icon</label>
+          <input id="s-icon" name="icon" value="${esc(existing?.icon ?? "🌱")}" maxlength="4" />
+        </div>
+      </div>
+      <p class="hint">A birthday is optional — it is only used to show how old they were.</p>
+      <div class="modal-actions">
+        ${existing && canArchive(existing) ? `<button class="btn btn-ghost" type="button" data-archive-subject="${esc(existing.id)}">Archive</button>` : ""}
+        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+        <button class="btn" type="submit">${existing ? "Save" : "Add"}</button>
+      </div>
+    </form>
+  `;
+}
+
+function milestoneForm(existing) {
+  const list = activeSubjects(subjects);
+  const today = todayStr(new Date(), householdTimeZone);
+  const [dy, dm, dd] = (existing?.occurred_date ?? today).split("-");
+  const precision = existing?.date_precision ?? "day";
+  const cat = existing?.category ?? "first";
+  return `
+    <h2>${existing ? "Edit" : "Add a"} milestone</h2>
+    <form class="form" id="milestone-form" data-id="${esc(existing?.id ?? "")}">
+      <div class="field">
+        <label for="m-subject">Who</label>
+        <select id="m-subject" name="subject_id" required>
+          ${list.map((s) => {
+            const sel = s.id === (existing?.subject_id ?? selectedSubjectId) ? " selected" : "";
+            return `<option value="${esc(s.id)}"${sel}>${esc(resolveSubject(s, members).name)}</option>`;
+          }).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label for="m-title">What happened</label>
+        <input id="m-title" name="title" data-autofocus value="${esc(existing?.title ?? "")}"
+               placeholder="First steps" required maxlength="120" />
+      </div>
+      <div class="field">
+        <label for="m-precision">How well do you know the date?</label>
+        <select id="m-precision" name="date_precision">
+          <option value="day"${precision === "day" ? " selected" : ""}>The exact day</option>
+          <option value="month"${precision === "month" ? " selected" : ""}>The month</option>
+          <option value="year"${precision === "year" ? " selected" : ""}>Only the year</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="m-year">Year</label>
+          <input id="m-year" name="year" type="number" min="1900" max="2200" value="${esc(dy)}" required />
+        </div>
+        <div class="field" data-when="month day">
+          <label for="m-month">Month</label>
+          <select id="m-month" name="month">
+            ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((mo, i) =>
+              `<option value="${i + 1}"${Number(dm) === i + 1 ? " selected" : ""}>${mo}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field" data-when="day">
+          <label for="m-day">Day</label>
+          <input id="m-day" name="day" type="number" min="1" max="31" value="${esc(String(Number(dd)))}" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="m-category">Kind</label>
+        <select id="m-category" name="category">
+          ${CATEGORIES.map((c) => `<option value="${esc(c.id)}"${c.id === cat ? " selected" : ""}>${c.icon} ${esc(c.label)}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label for="m-note">The story</label>
+        <textarea id="m-note" name="note" maxlength="2000" placeholder="Optional">${esc(existing?.note ?? "")}</textarea>
+      </div>
+      ${FILES ? `
+      <div class="field">
+        <label for="m-photo">Photos</label>
+        <input id="m-photo" type="file" accept="image/*" multiple />
+        <div class="photos" id="m-photos"></div>
+      </div>` : ""}
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+        <button class="btn" type="submit">${existing ? "Save" : "Add"}</button>
+      </div>
+    </form>
+  `;
+}
+
+/** Shows the month/day inputs only at the precision that actually uses them. */
+function syncPrecisionFields() {
+  const form = modalEl?.querySelector("#milestone-form");
+  if (!form) return;
+  const p = form.querySelector("#m-precision").value;
+  for (const el of form.querySelectorAll("[data-when]")) {
+    el.style.display = el.getAttribute("data-when").split(" ").includes(p) ? "" : "none";
+  }
+}
+
+function renderPendingPhotos() {
+  const box = modalEl?.querySelector("#m-photos");
+  if (!box) return;
+  box.innerHTML = pendingFiles.map((f) =>
+    `<img src="${esc(f.url)}" alt="" /><button type="button" class="btn-quiet-danger" data-drop-file="${esc(f.id)}">Remove</button>`
+  ).join("");
+}
+
+// --- Render ------------------------------------------------------------------
+function visibleMilestones() {
+  const activeMilestones = milestonesForActiveSubjects(milestones, subjects);
+  let list = selectedSubjectId === "all"
+    ? activeMilestones
+    : activeMilestones.filter((m) => m.subject_id === selectedSubjectId);
+  if (searchQ) {
+    list = list.filter((m) => searchMatch(searchQ, searchableFields(m, subjectInfo(m.subject_id).name)));
+  }
+  return sortTimeline(list);
+}
+
+function renderEntry(m, isLast) {
+  const info = subjectInfo(m.subject_id);
+  const age = ageAt(info.birthDate, m.occurred_date, m.date_precision);
+  const photos = parseFileIds(m);
+  const meta = [
+    formatOccurred(m.occurred_date, m.date_precision),
+    selectedSubjectId === "all" ? esc(info.name) : "",
+    age ? `<span class="age">${esc(age)}</span>` : "",
+  ].filter(Boolean).join(" · ");
+
+  return `
+    <div class="entry">
+      <div class="entry-rail">
+        <div class="entry-dot" aria-hidden="true">${esc(categoryIcon(m.category))}</div>
+        ${isLast ? "" : `<div class="entry-line"></div>`}
+      </div>
+      <div class="entry-body">
+        <div class="entry-head">
+          <div>
+            <div class="entry-title">${esc(m.title)}</div>
+            <div class="entry-meta">${meta}</div>
+          </div>
+          <div>
+            ${canEdit(m) ? `<button class="btn-quiet" data-edit-milestone="${esc(m.id)}">Edit</button>` : ""}
+            ${canDelete(m) ? `<button class="btn-quiet-danger" data-delete-milestone="${esc(m.id)}">Remove</button>` : ""}
+          </div>
+        </div>
+        ${m.note ? `<div class="entry-note">${esc(m.note)}</div>` : ""}
+        ${photos.length ? `<div class="photos">${photos.map((id) => `<img src="${esc(files.url(id))}" alt="" loading="lazy" />`).join("")}</div>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function renderTimeline() {
+  const all = visibleMilestones();
+  if (!all.length) {
+    if (searchLoading) return `<div class="card empty">Searching the full timeline…</div>`;
+    if (searchQ) return `<div class="card empty">Nothing matches "${esc(searchQ)}".</div>`;
+    if (!activeSubjects(subjects).length) return `<div class="card empty">Add someone first, then start their timeline.</div>`;
+    return `<div class="card empty">No milestones yet. The first one is usually the hardest to remember the date of — "the month" is a fine answer.</div>`;
+  }
+  const { items: list, hiddenCount } = latestTimelinePage(all, timelineLimit);
+  let html = searchLoading
+    ? `<div class="card empty">Searching the full timeline…</div>`
+    : (hiddenCount || (!searchQ && hasEarlierMilestones)
+      ? `<button class="btn btn-ghost" type="button" data-show-earlier${earlierLoadPromise ? " disabled" : ""}>${earlierLoadPromise ? "Loading…" : `Show ${hiddenCount ? Math.min(TIMELINE_PAGE_SIZE, hiddenCount) : TIMELINE_PAGE_SIZE} earlier milestones`}</button>`
+      : "");
+  let year = null;
+  list.forEach((m, i) => {
+    const y = m.occurred_date.slice(0, 4);
+    if (y !== year) { year = y; html += `<div class="year-head">${esc(y)}</div>`; }
+    const nextY = list[i + 1]?.occurred_date.slice(0, 4);
+    html += renderEntry(m, i === list.length - 1 || nextY !== y);
+  });
+  return html;
+}
+
+function renderOnThisDay() {
+  const today = todayStr(new Date(), householdTimeZone);
+  const hits = milestonesForActiveSubjects(anniversaryMilestones, subjects);
+  if (!hits.length) return "";
+  return `
+    <div class="banner">
+      <h2>On this day</h2>
+      ${hits.map((m) => {
+        const info = subjectInfo(m.subject_id);
+        const years = Number(today.slice(0, 4)) - Number(m.occurred_date.slice(0, 4));
+        return `<div>${esc(m.title)} — ${esc(info.name)}, ${years === 1 ? "a year" : `${years} years`} ago</div>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function render() {
+  const list = activeSubjects(subjects);
+  const archived = archivedSubjects(subjects);
+  const root = document.getElementById("root");
+  root.className = "app";
+  if (!ready) {
+    root.innerHTML = `
+      <div class="topbar">
+        <div>
+          <h1>Milestones</h1>
+          <p class="muted tiny">The firsts and the once-evers, kept for good.</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" type="button" data-refresh>Refresh</button>
+      </div>
+      ${error ? `<div class="error">${esc(error)}</div>` : `<div class="card empty">Loading…</div>`}
+    `;
+    return;
+  }
+  root.innerHTML = `
+    <div class="topbar">
+      <div>
+        <h1>Milestones</h1>
+        <p class="muted tiny">The firsts and the once-evers, kept for good.</p>
+      </div>
+      <button class="btn btn-ghost btn-sm" type="button" data-refresh>Refresh</button>
+    </div>
+    ${error ? `<div class="error">${esc(error)}</div>` : ""}
+    ${renderOnThisDay()}
+    <div class="subjects">
+      ${list.length > 1 ? `<button class="chip" type="button" aria-pressed="${selectedSubjectId === "all"}" data-subject="all">Everyone</button>` : ""}
+      ${list.map((s) => {
+        const info = resolveSubject(s, members);
+        return `<span class="subject-control">
+          <button class="chip" type="button" aria-pressed="${s.id === selectedSubjectId}" data-subject="${esc(s.id)}">${esc(s.icon || "🌱")} ${esc(info.name)}</button>
+          ${canEdit(s) ? `<button class="btn-quiet" type="button" data-edit-subject="${esc(s.id)}" aria-label="Edit ${esc(info.name)}">Edit</button>` : ""}
+        </span>`;
+      }).join("")}
+      <button class="chip" type="button" data-add-subject>+ Someone</button>
+    </div>
+    ${archived.some(canArchive) ? `
+      <details class="archived-subjects">
+        <summary>Archived (${archived.length})</summary>
+        <div class="archived-subject-list">
+          ${archived.filter(canArchive).map((s) => {
+            const info = resolveSubject(s, members);
+            return `<button class="btn-quiet" type="button" data-restore-subject="${esc(s.id)}">Restore ${esc(info.name)}</button>`;
+          }).join("")}
+        </div>
+      </details>` : ""}
+    ${list.length ? `<button class="btn" type="button" data-add-milestone>Add a milestone</button>` : ""}
+    ${milestonesForActiveSubjects(milestones, subjects).length ? `
+      <div class="search-row" style="margin-top:12px">
+        <input id="search" class="search-input" type="search" placeholder="Search milestones…" aria-label="Search milestones" value="${esc(searchQ)}" />
+      </div>` : ""}
+    <section id="timeline" style="margin-top:6px">${renderTimeline()}</section>
+  `;
+}
+
+// --- Events ------------------------------------------------------------------
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest("button");
+  if (!btn) return;
+
+  if (btn.matches("[data-refresh]"))  { refresh(); return; }
+  if (btn.matches("[data-close]"))    { closeModal(); return; }
+
+  if (btn.hasAttribute("data-subject")) {
+    selectedSubjectId = btn.getAttribute("data-subject");
+    timelineLimit = TIMELINE_PAGE_SIZE;
+    render();
+    return;
+  }
+  if (btn.matches("[data-show-earlier]")) {
+    if (visibleMilestones().length > timelineLimit) {
+      timelineLimit += TIMELINE_PAGE_SIZE;
+      render();
+      return;
+    }
+    render();
+    try {
+      const visibleBefore = visibleMilestones().length;
+      do {
+        await loadEarlierMilestones();
+      } while (hasEarlierMilestones && visibleMilestones().length === visibleBefore);
+      timelineLimit += TIMELINE_PAGE_SIZE;
+    } catch (e) {
+      error = e.message;
+    }
+    render();
+    return;
+  }
+  if (btn.matches("[data-add-subject]")) { openModal(subjectForm(null)); return; }
+  if (btn.hasAttribute("data-edit-subject")) {
+    const row = subjectById(btn.getAttribute("data-edit-subject"));
+    if (row && canEdit(row)) openModal(subjectForm(row));
+    return;
+  }
+  if (btn.hasAttribute("data-archive-subject")) {
+    await archiveSubject(btn.getAttribute("data-archive-subject"));
+    return;
+  }
+  if (btn.hasAttribute("data-restore-subject")) {
+    await restoreSubject(btn.getAttribute("data-restore-subject"));
+    return;
+  }
+  if (btn.matches("[data-add-milestone]")) {
+    if (selectedSubjectId === "all") selectedSubjectId = activeSubjects(subjects)[0]?.id ?? "all";
+    openModal(milestoneForm(null));
+    syncPrecisionFields();
+    return;
+  }
+  if (btn.hasAttribute("data-edit-milestone")) {
+    const row = milestones.find((m) => m.id === btn.getAttribute("data-edit-milestone"));
+    if (!row) return;
+    openModal(milestoneForm(row));
+    pendingFiles = parseFileIds(row).map((id) => ({ id, url: files.url(id), isNew: false }));
+    syncPrecisionFields();
+    renderPendingPhotos();
+    return;
+  }
+  if (btn.hasAttribute("data-delete-milestone")) {
+    deleteMilestone(btn.getAttribute("data-delete-milestone"));
+    return;
+  }
+  if (btn.hasAttribute("data-drop-file")) {
+    const id = btn.getAttribute("data-drop-file");
+    const dropped = pendingFiles.find((f) => f.id === id);
+    pendingFiles = pendingFiles.filter((f) => f.id !== id);
+    if (dropped?.isNew) await deleteFilesBestEffort([id]);
+    renderPendingPhotos();
+    return;
+  }
+});
+
+document.addEventListener("change", async (event) => {
+  if (event.target.id === "m-precision") { syncPrecisionFields(); return; }
+  if (event.target.id !== "m-photo") return;
+
+  const input = event.target;
+  const chosen = [...input.files];
+  const session = uploadSession;
+  uploadsInFlight += chosen.length;
+  input.value = "";
+  for (const file of chosen) {
+    try {
+      // Never record a file id before the upload resolves — a 413/415/507 here
+      // would otherwise leave a milestone pointing at a photo that never landed.
+      const uploaded = await files.upload(file);
+      if (session !== uploadSession || !modalEl?.contains(input)) {
+        await deleteFilesBestEffort([uploaded.id]);
+        break;
+      }
+      pendingFiles.push({ ...uploaded, isNew: true });
+      renderPendingPhotos();
+    } catch (e) {
+      if (session === uploadSession) {
+        await hubAlert("That photo could not be uploaded.", { description: e.message });
+      }
+    } finally {
+      if (session === uploadSession) uploadsInFlight = Math.max(0, uploadsInFlight - 1);
+    }
+  }
+});
+
+document.addEventListener("input", async (event) => {
+  if (event.target.id !== "search") return;
+  searchQ = event.target.value;
+  timelineLimit = TIMELINE_PAGE_SIZE;
+  const el = document.getElementById("timeline");
+  if (el) el.innerHTML = renderTimeline();
+  if (!searchQ.trim() || !hasEarlierMilestones || searchLoading) return;
+  searchLoading = true;
+  if (el) el.innerHTML = renderTimeline();
+  try {
+    await loadAllMilestonesForSearch();
+  } catch (e) {
+    error = e.message;
+  } finally {
+    searchLoading = false;
+    render();
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (form.id !== "subject-form" && form.id !== "milestone-form") return;
+  event.preventDefault();
+
+  const submit = form.querySelector('.modal-actions button[type="submit"]');
+  const label = submit?.textContent;
+  let postSaveWarning = "";
+  if (submit) { submit.disabled = true; submit.textContent = "Saving…"; }
+
+  try {
+    // Read inputs through form.elements, never form.<name>: HTMLFormElement
+    // already owns `name` and `title` as DOM properties, so `form.title` is the
+    // element's tooltip string, not the input.
+    const f = form.elements;
+    if (form.id === "subject-form") {
+      const name = f.name.value.trim();
+      if (!name) { f.name.focus(); throw new Error("A name is required."); }
+      const id = await saveSubject({
+        name,
+        member_id: f.member_id.value,
+        birth_date: f.birth_date.value,
+        icon: f.icon.value.trim() || "🌱",
+      }, form.dataset.id || null);
+      if (!form.dataset.id) selectedSubjectId = id;
+    } else {
+      const title = f.title.value.trim();
+      if (!title) { f.title.focus(); throw new Error("Say what happened."); }
+      if (uploadsInFlight > 0) throw new Error("Wait for the selected photos to finish uploading.");
+      const precision = f.date_precision.value;
+      const result = await saveMilestone({
+        subject_id: f.subject_id.value,
+        title,
+        note: f.note.value.trim(),
+        category: f.category.value,
+        date_precision: precision,
+        occurred_date: canonicalDate(
+          Number(f.year.value),
+          Number(f.month.value),
+          Number(f.day.value || 1),
+          precision,
+        ),
+      }, form.dataset.id || null);
+      postSaveWarning = result?.publishWarning ?? "";
+    }
+    error = "";
+    timelineLimit = TIMELINE_PAGE_SIZE;
+    closeModal({ keepNewUploads: true });
+    render();
+    if (postSaveWarning) {
+      await hubAlert("Milestone saved, but its automation event could not be delivered.", {
+        description: postSaveWarning,
+      });
+    }
+  } catch (e) {
+    error = e.message;
+    if (submit) { submit.disabled = false; submit.textContent = label; }
+    render();
+    await hubAlert("That change could not be saved.", { description: e.message });
+  }
+});
+
+refresh();
+</script>
+</body>
+</html>
