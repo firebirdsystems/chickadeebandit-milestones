@@ -34,6 +34,9 @@
     "requires_approval": false
   },
   "storage": "db",
+  "preload": {
+    "people": {"sql": "SELECT * FROM app_milestones__people ORDER BY created_at"}
+  },
   "db_plaintext_columns": [
     "date_precision"
   ],
