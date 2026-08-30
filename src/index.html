@@ -1103,7 +1103,7 @@ function renderEntry(m, isLast) {
   ].filter(Boolean).join(" · ");
 
   return `
-    <div class="entry">
+    <div class="entry" data-testid="milestone-entry" data-milestone-id="${esc(m.id)}">
       <div class="entry-rail">
         <div class="entry-dot" aria-hidden="true">${esc(categoryIcon(m.category))}</div>
         ${isLast ? "" : `<div class="entry-line"></div>`}
@@ -1116,7 +1116,7 @@ function renderEntry(m, isLast) {
           </div>
           <div>
             ${canEdit(m) ? `<button class="btn-quiet" data-edit-milestone="${esc(m.id)}">Edit</button>` : ""}
-            ${canDelete(m) ? `<button class="btn-quiet-danger" data-delete-milestone="${esc(m.id)}">Remove</button>` : ""}
+            ${canDelete(m) ? `<button class="btn-quiet-danger" data-testid="milestone-remove" data-milestone-id="${esc(m.id)}" data-delete-milestone="${esc(m.id)}">Remove</button>` : ""}
           </div>
         </div>
         ${m.note ? `<div class="entry-note">${esc(m.note)}</div>` : ""}

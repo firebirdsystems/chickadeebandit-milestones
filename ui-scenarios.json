@@ -1,0 +1,22 @@
+{
+  "scenarios": [
+    {
+      "name": "the Remove control on a milestone renders for an adult and not for a child",
+      "members": { "parent": "adult", "kid": "child" },
+      "steps": [
+        { "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, visibility, created_by, created_at, updated_at) VALUES ('ms-entry', ?, 'first', '2026-05-04', 'everyone', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": ["First swim lesson", "{{parent}}"] },
+
+        { "action": "open", "as": "kid" },
+        { "action": "expectVisible", "as": "kid", "selector": "[data-testid=\"milestone-entry\"][data-milestone-id=\"ms-entry\"]" },
+        { "action": "expectCount", "as": "kid", "selector": "[data-testid=\"milestone-remove\"][data-milestone-id=\"ms-entry\"]", "count": 0 },
+        { "action": "expectText", "as": "kid", "text": "First swim lesson" },
+
+        { "action": "open", "as": "parent" },
+        { "action": "expectVisible", "as": "parent", "selector": "[data-testid=\"milestone-entry\"][data-milestone-id=\"ms-entry\"]" },
+        { "action": "expectVisible", "as": "parent", "selector": "[data-testid=\"milestone-remove\"][data-milestone-id=\"ms-entry\"]" }
+      ]
+    }
+  ]
+}
