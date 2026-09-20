@@ -1,5 +1,7 @@
 # Milestones
 
+A [Chickadee Bandit](https://chickadeebandit.com/app-library/milestones) app.
+
 A Chickadee Bandit app: a permanent, dated timeline of the things that happen
 once — first steps, first word, first day of school, the day the dog came home,
 the day we got the keys.
