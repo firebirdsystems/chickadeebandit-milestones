@@ -146,7 +146,10 @@
 </div>
 
 <script type="module">
-import { esc, hubConfirm, hubAlert, createFilesHelper, searchMatch } from "/hub-sdk.js";
+import {
+  esc, hubConfirm, hubAlert, createFilesHelper, searchMatch, isAdult,
+  createShareHelper, activeShareLinks, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
+} from "/hub-sdk.js";
 import {
   CATEGORIES, categoryIcon, canonicalDate, formatOccurred,
   canEdit as _canEdit, canDelete as _canDelete, activePeople, archivedPeople,
@@ -155,8 +158,9 @@ import {
   peopleOnMilestone, describePeople,
   attachablePeople, attachmentBatchPlan, chunk, unsavedFileIds, resolvePerson,
   sortTimeline, latestTimelinePage, timelinePageFromDescending, mergeTimelineRows,
-  onThisDay, searchableFields, todayStr,
+  onThisDay, searchableFields, todayStr, canShareMilestone,
 } from "./logic.js";
+import { createShareUi, createOverlayView } from "./share.js";
 // searchMatch comes from the SDK, not from logic.js: shared.js carries a
 // simplified mirror so the pure logic stays testable in node, but the browser
 // must use the hub's real matcher (diacritic folding, token-AND) so in-app
@@ -172,6 +176,33 @@ const ME         = window.__CURRENT_MEMBER ?? null;
 
 const files = createFilesHelper(FILES);
 const TIMELINE_PAGE_SIZE = 100;
+
+// External share links (manifest.shareable.milestone). The hub injects the URLs
+// only when the manifest declares `shareable`, and mints for adults only; whether
+// this household or space allows it at all is answered by the panel's first
+// read, which it reports rather than guessing here. The mint only checks that
+// the row exists — `visible_where` is applied on READ — so the button is also
+// gated per row by canShareMilestone: a private milestone would mint a dead link.
+const share = createShareHelper(window.__SHARE_CREATE_URL, window.__SHARE_REVOKE_URL, window.__SHARE_LIST_URL);
+const CAN_SHARE = share.enabled && isAdult(ME);
+const shareView = createOverlayView(document);
+const shareUi = createShareUi({
+  share,
+  itemType: "milestone",
+  noun: "milestone",
+  scopeHtml: () => "The page shows the milestone’s title, its story, what kind of milestone it is and its photos. Who it’s about and when it happened stay in the household, so add those to the story if you want them on the page. Anyone who gets the link can read it.",
+  esc,
+  confirm: (message, opts) => hubConfirm({ message, ...opts, destructive: true }),
+  writeText: (text) => navigator.clipboard.writeText(text),
+  activeLinks: activeShareLinks,
+  expiryChoices: SHARE_EXPIRY_CHOICES,
+  defaultExpiryHours: DEFAULT_SHARE_EXPIRY_HOURS,
+  getMe: () => ME,
+  isAdmin: () => window.__IS_ADMIN === true,
+  memberName: (id) => memberById.get(id)?.name ?? "",
+  view: shareView,
+});
+shareView.bind(shareUi);
 
 /**
  * D1 rejects a prepared statement carrying more than 100 bound parameters, so
@@ -1115,6 +1146,7 @@ function renderEntry(m, isLast) {
             <div class="entry-meta">${meta}</div>
           </div>
           <div>
+            ${CAN_SHARE && canShareMilestone(m) ? `<button class="btn-quiet" data-testid="milestone-share" data-share-milestone="${esc(m.id)}">Share</button>` : ""}
             ${canEdit(m) ? `<button class="btn-quiet" data-edit-milestone="${esc(m.id)}">Edit</button>` : ""}
             ${canDelete(m) ? `<button class="btn-quiet-danger" data-testid="milestone-remove" data-milestone-id="${esc(m.id)}" data-delete-milestone="${esc(m.id)}">Remove</button>` : ""}
           </div>
@@ -1289,6 +1321,11 @@ document.addEventListener("click", async (event) => {
     const preset = selectedPersonId === "all" || selectedPersonId === "household" ? [] : [selectedPersonId];
     openModal(milestoneForm(null, preset));
     syncPrecisionFields();
+    return;
+  }
+  if (btn.hasAttribute("data-share-milestone")) {
+    const row = milestones.find((m) => m.id === btn.getAttribute("data-share-milestone"));
+    if (row && CAN_SHARE && canShareMilestone(row)) shareUi.open({ id: row.id, title: row.title });
     return;
   }
   if (btn.hasAttribute("data-edit-milestone")) {

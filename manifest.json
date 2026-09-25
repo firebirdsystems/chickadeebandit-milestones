@@ -98,6 +98,19 @@
       "max_rows": 20000
     }
   },
+  "shareable": {
+    "milestone": {
+      "table": "milestones",
+      "title_column": "title",
+      "columns": [
+        { "column": "note", "label": "The story", "format": "multiline" },
+        { "column": "category", "label": "Kind",
+          "value_labels": { "first": "A first", "school": "School", "health": "Health", "home": "Home", "pet": "Pet", "travel": "Travel", "other": "Other" } }
+      ],
+      "visible_where": { "column": "visibility", "values": ["everyone"] },
+      "files": { "ids_column": "file_ids", "label": "Photos" }
+    }
+  },
   "member_references": {
     "people": [
       {

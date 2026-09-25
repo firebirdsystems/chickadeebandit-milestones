@@ -157,6 +157,19 @@ export function canDelete(_row, me) {
   return isAdult(me);
 }
 
+/**
+ * Whether a milestone may be offered for an external share link.
+ *
+ * The hub's mint only checks that the row exists; `shareable.milestone`'s
+ * `visible_where` (visibility = "everyone") is enforced when the public page is
+ * READ. Adults can see "private" milestones, so without this gate they would be
+ * offered a link that resolves to nothing. Who may share (adults, with sharing
+ * enabled) is the caller's half.
+ */
+export function canShareMilestone(m) {
+  return m?.visibility === "everyone";
+}
+
 /** People the picker should offer: never the archived ones, name-ordered. */
 export function activePeople(people) {
   return (people ?? [])
