@@ -662,6 +662,165 @@
           }
         }
       ]
+    },
+    {
+      "name": "in a shared space a participant adult cannot rename, archive or remove someone another member added; the steward can",
+      "context": "shared_space",
+      "members": { "a": "adult", "b": "adult", "steward": "admin" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES ('p-rowan', '', 'Rowan', '2019-04-02', 'x', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z'), ('p-ivy', '', 'Ivy', '2020-05-01', 'x', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')",
+          "params": ["{{a}}", "{{a}}"]
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "UPDATE app_milestones__people SET name = ? WHERE id = ?",
+          "params": ["Renamed", "p-rowan"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "UPDATE app_milestones__people SET archived_at = ? WHERE id = ?",
+          "params": ["2026-08-03T00:00:00Z", "p-rowan"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "DELETE FROM app_milestones__people WHERE id = ?",
+          "params": ["p-ivy"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT id, name, archived_at FROM app_milestones__people ORDER BY id",
+          "params": [],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [{ "id": "p-rowan", "name": "Rowan", "archived_at": null }, { "id": "p-ivy", "name": "Ivy" }]
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "UPDATE app_milestones__people SET archived_at = ? WHERE id = ?",
+          "params": ["2026-08-03T00:00:00Z", "p-rowan"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "DELETE FROM app_milestones__people WHERE id = ?",
+          "params": ["p-ivy"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT id, archived_at FROM app_milestones__people ORDER BY id",
+          "params": [],
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [{ "id": "p-rowan", "archived_at": "2026-08-03T00:00:00Z" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "in a shared space a participant adult cannot rewrite or remove another member's milestone; the steward can",
+      "context": "shared_space",
+      "members": { "a": "adult", "b": "adult", "steward": "admin" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-1', 'First word', '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-2', 'First step', '', 'first', '2024-05-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": ["{{a}}", "{{a}}"]
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "UPDATE app_milestones__milestones SET category = ? WHERE id = ?",
+          "params": ["school", "m-1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "DELETE FROM app_milestones__milestones WHERE id = ?",
+          "params": ["m-2"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT id, category FROM app_milestones__milestones ORDER BY id",
+          "params": [],
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [{ "id": "m-1", "category": "first" }, { "id": "m-2", "category": "first" }]
+          }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "UPDATE app_milestones__milestones SET category = ? WHERE id = ?",
+          "params": ["school", "m-1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "DELETE FROM app_milestones__milestones WHERE id = ?",
+          "params": ["m-2"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT id, category FROM app_milestones__milestones ORDER BY id",
+          "params": [],
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-1", "category": "school" }] }
+        }
+      ]
+    },
+    {
+      "name": "in a household any adult may correct or remove another adult's milestone",
+      "members": { "a": "adult", "b": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES ('m-1', 'First word', '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z'), ('m-2', 'First step', '', 'first', '2024-05-01', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')",
+          "params": ["{{a}}", "{{a}}"]
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "UPDATE app_milestones__milestones SET category = ? WHERE id = ?",
+          "params": ["school", "m-1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "b",
+          "sql": "DELETE FROM app_milestones__milestones WHERE id = ?",
+          "params": ["m-2"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT id, category FROM app_milestones__milestones ORDER BY id",
+          "params": [],
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-1", "category": "school" }] }
+        }
+      ]
     }
   ]
 }
