@@ -7,17 +7,18 @@ export { isAdult, searchMatch };
 export const PRECISIONS = ["day", "month", "year"];
 
 export const CATEGORIES = [
-  { id: "first",  label: "A first",  icon: "✨" },
-  { id: "school", label: "School",   icon: "🎒" },
-  { id: "health", label: "Health",   icon: "🩺" },
-  { id: "home",   label: "Home",     icon: "🏡" },
-  { id: "pet",    label: "Pet",      icon: "🐾" },
-  { id: "travel", label: "Travel",   icon: "✈️" },
-  { id: "other",  label: "Other",    icon: "🌱" },
+  { id: "first",  label: "A first",  glyph: "sparkles" },
+  { id: "school", label: "School",   glyph: "graduation" },
+  { id: "health", label: "Health",   glyph: "stethoscope" },
+  { id: "home",   label: "Home",     glyph: "house" },
+  { id: "pet",    label: "Pet",      glyph: "paw" },
+  { id: "travel", label: "Travel",   glyph: "plane" },
+  { id: "other",  label: "Other",    glyph: "sprout" },
 ];
 
-export function categoryIcon(id) {
-  return CATEGORIES.find((c) => c.id === id)?.icon ?? "🌱";
+/** The name of the hub glyph that marks a category — drawn with the SDK's glyph(). */
+export function categoryGlyph(id) {
+  return CATEGORIES.find((c) => c.id === id)?.glyph ?? "sprout";
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

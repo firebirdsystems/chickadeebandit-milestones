@@ -8,7 +8,7 @@ import {
   peopleOnMilestone, describePeople, unsavedFileIds,
   resolvePerson, sortTimeline, latestTimelinePage,
   timelinePageFromDescending, mergeTimelineRows, onThisDay,
-  searchableFields, categoryIcon, todayStr,
+  searchableFields, categoryGlyph, todayStr,
 } from "../src/logic.js";
 
 const ADULT = { id: "a1", name: "Alex", role: "adult" };
@@ -528,7 +528,7 @@ describe("searchableFields", () => {
   });
 });
 
-describe("categoryIcon", () => {
-  it("resolves a known category", () => expect(categoryIcon("school")).toBe("🎒"));
-  it("falls back for an unknown one", () => expect(categoryIcon("nope")).toBe("🌱"));
+describe("categoryGlyph", () => {
+  it("resolves a known category", () => expect(categoryGlyph("school")).toBe("graduation"));
+  it("falls back for an unknown one", () => expect(categoryGlyph("nope")).toBe("sprout"));
 });

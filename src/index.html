@@ -149,9 +149,10 @@
 import {
   esc, hubConfirm, hubAlert, createFilesHelper, searchMatch, isAdult,
   createShareHelper, activeShareLinks, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
+  glyph,
 } from "/hub-sdk.js";
 import {
-  CATEGORIES, categoryIcon, canonicalDate, formatOccurred,
+  CATEGORIES, categoryGlyph, canonicalDate, formatOccurred,
   canEdit as _canEdit, canDelete as _canDelete, activePeople, archivedPeople,
   normalizeSelectedPersonId, visibleMilestonesFor, filterByPerson,
   linksByMilestone, personIdsFor, attachmentDelta, blockedRemovals,
@@ -192,6 +193,7 @@ const shareUi = createShareUi({
   noun: "milestone",
   scopeHtml: () => "The page shows the milestone’s title, its story, what kind of milestone it is and its photos. Who it’s about and when it happened stay in the household, so add those to the story if you want them on the page. Anyone who gets the link can read it.",
   esc,
+  glyph,
   confirm: (message, opts) => hubConfirm({ message, ...opts, destructive: true }),
   writeText: (text) => navigator.clipboard.writeText(text),
   activeLinks: activeShareLinks,
@@ -1065,7 +1067,7 @@ function milestoneForm(existing, presetPersonIds) {
       <div class="field">
         <label for="m-category">Kind</label>
         <select id="m-category" name="category">
-          ${CATEGORIES.map((c) => `<option value="${esc(c.id)}"${c.id === cat ? " selected" : ""}>${c.icon} ${esc(c.label)}</option>`).join("")}
+          ${CATEGORIES.map((c) => `<option value="${esc(c.id)}"${c.id === cat ? " selected" : ""}>${esc(c.label)}</option>`).join("")}
         </select>
       </div>
       <div class="field">
@@ -1136,7 +1138,7 @@ function renderEntry(m, isLast) {
   return `
     <div class="entry" data-testid="milestone-entry" data-milestone-id="${esc(m.id)}">
       <div class="entry-rail">
-        <div class="entry-dot" aria-hidden="true">${esc(categoryIcon(m.category))}</div>
+        <div class="entry-dot" aria-hidden="true">${glyph(categoryGlyph(m.category))}</div>
         ${isLast ? "" : `<div class="entry-line"></div>`}
       </div>
       <div class="entry-body">
@@ -1234,7 +1236,7 @@ function render() {
     ${renderOnThisDay()}
     <div class="subjects">
       ${list.length || hasHousehold ? `<button class="chip" type="button" aria-pressed="${selectedPersonId === "all"}" data-person="all">Everything</button>` : ""}
-      ${hasHousehold ? `<button class="chip" type="button" aria-pressed="${selectedPersonId === "household"}" data-person="household">🏡 The household</button>` : ""}
+      ${hasHousehold ? `<button class="chip" type="button" aria-pressed="${selectedPersonId === "household"}" data-person="household">${glyph("house")} The household</button>` : ""}
       ${list.map((s) => {
         const info = resolvePerson(s, members);
         return `<span class="subject-control">
