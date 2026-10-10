@@ -1,0 +1,1432 @@
+{
+  "seed": [
+    {
+      "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+0 minutes'))",
+      "params": [
+        "perf-person-01",
+        "{{child}}",
+        "Rowan",
+        "{{date:-2750}}",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+1 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+1 minutes'))",
+      "params": [
+        "perf-person-02",
+        "{{child2}}",
+        "Juniper",
+        "{{date:-1650}}",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__people (id, member_id, name, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+2 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+2 minutes'))",
+      "params": [
+        "perf-person-03",
+        "{{me}}",
+        "Alex",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__people (id, member_id, name, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+3 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+3 minutes'))",
+      "params": [
+        "perf-person-04",
+        "{{partner}}",
+        "Jordan",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__people (id, name, birth_date, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+4 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+4 minutes'))",
+      "params": [
+        "perf-person-05",
+        "Biscuit the dog",
+        "{{date:-1200}}",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__people (id, name, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+5 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-200 days','+5 minutes'))",
+      "params": [
+        "perf-person-06",
+        "Grandma Rose",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','-0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','-0 minutes'))",
+      "params": [
+        "perf-ms-001",
+        "First steps",
+        "We were all in the kitchen when it happened.",
+        "first",
+        "{{date:-4}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','-0 minutes'))",
+      "params": [
+        "perf-mp-001",
+        "perf-ms-001",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-18 days','-13 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-18 days','-13 minutes'))",
+      "params": [
+        "perf-ms-002",
+        "Bunk beds assembled",
+        "Took three tries, then no stopping.",
+        "home",
+        "{{date:-18}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-18 days','-13 minutes'))",
+      "params": [
+        "perf-mp-002",
+        "perf-ms-002",
+        "perf-person-03",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-18 days','-13 minutes'))",
+      "params": [
+        "perf-mp-003",
+        "perf-ms-002",
+        "perf-person-04",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','-26 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','-26 minutes'))",
+      "params": [
+        "perf-ms-003",
+        "First library card",
+        "Grandma cried on the video call.",
+        "first",
+        "{{date:-34}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','-26 minutes'))",
+      "params": [
+        "perf-mp-004",
+        "perf-ms-003",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-39 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-39 minutes'))",
+      "params": [
+        "perf-ms-004",
+        "Museum weekend in the city",
+        "Wouldn't stop talking about it for a week.",
+        "travel",
+        "{{date:-365}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-39 minutes'))",
+      "params": [
+        "perf-mp-005",
+        "perf-ms-004",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-39 minutes'))",
+      "params": [
+        "perf-mp-006",
+        "perf-ms-004",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-52 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-52 minutes'))",
+      "params": [
+        "perf-ms-005",
+        "No more night light",
+        "Photo is on the fridge.",
+        "health",
+        "{{date:-730}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-52 minutes'))",
+      "params": [
+        "perf-mp-007",
+        "perf-ms-005",
+        "perf-person-01",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','-65 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','-65 minutes'))",
+      "params": [
+        "perf-ms-006",
+        "First swim lesson",
+        "first",
+        "{{date:-76}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','-65 minutes'))",
+      "params": [
+        "perf-mp-008",
+        "perf-ms-006",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-78 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-78 minutes'))",
+      "params": [
+        "perf-ms-007",
+        "Biscuit learned to shake",
+        "pet",
+        "{{date:-82}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-78 minutes'))",
+      "params": [
+        "perf-mp-009",
+        "perf-ms-007",
+        "perf-person-05",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-99 days','-91 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-99 days','-91 minutes'))",
+      "params": [
+        "perf-ms-008",
+        "Moved up to second grade",
+        "So proud.",
+        "school",
+        "{{date:-99}}",
+        "day",
+        "private",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-99 days','-91 minutes'))",
+      "params": [
+        "perf-mp-010",
+        "perf-ms-008",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','-104 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','-104 minutes'))",
+      "params": [
+        "perf-ms-009",
+        "Won the costume contest",
+        "other",
+        "{{date:-109}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','-104 minutes'))",
+      "params": [
+        "perf-mp-011",
+        "perf-ms-009",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, date('now','-121 days','start of month'), ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-117 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-117 minutes'))",
+      "params": [
+        "perf-ms-010",
+        "Moved into the new house",
+        "We were all in the kitchen when it happened.",
+        "home",
+        "month",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-117 minutes'))",
+      "params": [
+        "perf-mp-012",
+        "perf-ms-010",
+        "perf-person-03",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-117 minutes'))",
+      "params": [
+        "perf-mp-013",
+        "perf-ms-010",
+        "perf-person-04",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-135 days','-130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-135 days','-130 minutes'))",
+      "params": [
+        "perf-ms-011",
+        "First piano recital",
+        "Took three tries, then no stopping.",
+        "first",
+        "{{date:-135}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-135 days','-130 minutes'))",
+      "params": [
+        "perf-mp-014",
+        "perf-ms-011",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-143 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-143 minutes'))",
+      "params": [
+        "perf-ms-012",
+        "Saw snow for the first time",
+        "Grandma cried on the video call.",
+        "travel",
+        "{{date:-151}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-143 minutes'))",
+      "params": [
+        "perf-mp-015",
+        "perf-ms-012",
+        "perf-person-01",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-143 minutes'))",
+      "params": [
+        "perf-mp-016",
+        "perf-ms-012",
+        "perf-person-02",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-160 days','-156 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-160 days','-156 minutes'))",
+      "params": [
+        "perf-ms-013",
+        "Class field trip to the aquarium",
+        "Wouldn't stop talking about it for a week.",
+        "school",
+        "{{date:-160}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-160 days','-156 minutes'))",
+      "params": [
+        "perf-mp-017",
+        "perf-ms-013",
+        "perf-person-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days','-169 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days','-169 minutes'))",
+      "params": [
+        "perf-ms-014",
+        "First word",
+        "Photo is on the fridge.",
+        "first",
+        "{{date:-180}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days','-169 minutes'))",
+      "params": [
+        "perf-mp-018",
+        "perf-ms-014",
+        "perf-person-01",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-182 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-182 minutes'))",
+      "params": [
+        "perf-ms-015",
+        "Paid off the car",
+        "home",
+        "{{date:-193}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-195 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-195 minutes'))",
+      "params": [
+        "perf-ms-016",
+        "First day of kindergarten",
+        "school",
+        "{{date:-199}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-195 minutes'))",
+      "params": [
+        "perf-mp-019",
+        "perf-ms-016",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-208 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-208 minutes'))",
+      "params": [
+        "perf-ms-017",
+        "Learned to whistle",
+        "So proud.",
+        "other",
+        "{{date:-216}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-208 minutes'))",
+      "params": [
+        "perf-mp-020",
+        "perf-ms-017",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, date('now','-226 days','start of year'), ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-221 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-221 minutes'))",
+      "params": [
+        "perf-ms-018",
+        "Finished swim level 3",
+        "health",
+        "year",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-221 minutes'))",
+      "params": [
+        "perf-mp-021",
+        "perf-ms-018",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-234 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-234 minutes'))",
+      "params": [
+        "perf-ms-019",
+        "First haircut",
+        "We were all in the kitchen when it happened.",
+        "first",
+        "{{date:-238}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-234 minutes'))",
+      "params": [
+        "perf-mp-022",
+        "perf-ms-019",
+        "perf-person-02",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-247 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-247 minutes'))",
+      "params": [
+        "perf-ms-020",
+        "Biscuit's first beach day",
+        "Took three tries, then no stopping.",
+        "pet",
+        "{{date:-252}}",
+        "day",
+        "private",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-247 minutes'))",
+      "params": [
+        "perf-mp-023",
+        "perf-ms-020",
+        "perf-person-05",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-260 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-260 minutes'))",
+      "params": [
+        "perf-ms-021",
+        "School play: the narrator",
+        "Grandma cried on the video call.",
+        "school",
+        "{{date:-268}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-260 minutes'))",
+      "params": [
+        "perf-mp-024",
+        "perf-ms-021",
+        "perf-person-01",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-273 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-273 minutes'))",
+      "params": [
+        "perf-ms-022",
+        "Stayed up until midnight",
+        "Wouldn't stop talking about it for a week.",
+        "other",
+        "{{date:-277}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-273 minutes'))",
+      "params": [
+        "perf-mp-025",
+        "perf-ms-022",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-286 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-286 minutes'))",
+      "params": [
+        "perf-ms-023",
+        "Painted the bedroom yellow",
+        "Photo is on the fridge.",
+        "home",
+        "{{date:-297}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, date('now','-310 days','start of month'), ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-299 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-299 minutes'))",
+      "params": [
+        "perf-ms-024",
+        "First goal in a real game",
+        "first",
+        "month",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-299 minutes'))",
+      "params": [
+        "perf-mp-026",
+        "perf-ms-024",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-312 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-312 minutes'))",
+      "params": [
+        "perf-ms-025",
+        "Visited Grandma in Lisbon",
+        "travel",
+        "{{date:-316}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-312 minutes'))",
+      "params": [
+        "perf-mp-027",
+        "perf-ms-025",
+        "perf-person-06",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-312 minutes'))",
+      "params": [
+        "perf-mp-028",
+        "perf-ms-025",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-325 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-325 minutes'))",
+      "params": [
+        "perf-ms-026",
+        "Glasses for the first time",
+        "So proud.",
+        "health",
+        "{{date:-333}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-325 minutes'))",
+      "params": [
+        "perf-mp-029",
+        "perf-ms-026",
+        "perf-person-01",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-338 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-338 minutes'))",
+      "params": [
+        "perf-ms-027",
+        "First tooth",
+        "first",
+        "{{date:-343}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-338 minutes'))",
+      "params": [
+        "perf-mp-030",
+        "perf-ms-027",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-351 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-351 minutes'))",
+      "params": [
+        "perf-ms-028",
+        "New kitchen finished",
+        "We were all in the kitchen when it happened.",
+        "home",
+        "{{date:-355}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-351 minutes'))",
+      "params": [
+        "perf-mp-031",
+        "perf-ms-028",
+        "perf-person-03",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-351 minutes'))",
+      "params": [
+        "perf-mp-032",
+        "perf-ms-028",
+        "perf-person-04",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-364 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-364 minutes'))",
+      "params": [
+        "perf-ms-029",
+        "Learned to read a whole book",
+        "Took three tries, then no stopping.",
+        "school",
+        "{{date:-369}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-364 minutes'))",
+      "params": [
+        "perf-mp-033",
+        "perf-ms-029",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-377 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-377 minutes'))",
+      "params": [
+        "perf-ms-030",
+        "Lemonade stand made twelve dollars",
+        "Grandma cried on the video call.",
+        "other",
+        "{{date:-385}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-377 minutes'))",
+      "params": [
+        "perf-mp-034",
+        "perf-ms-030",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-390 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-390 minutes'))",
+      "params": [
+        "perf-ms-031",
+        "Ran a full 5K",
+        "Wouldn't stop talking about it for a week.",
+        "health",
+        "{{date:-394}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-390 minutes'))",
+      "params": [
+        "perf-mp-035",
+        "perf-ms-031",
+        "perf-person-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-403 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-403 minutes'))",
+      "params": [
+        "perf-ms-032",
+        "First time on skates",
+        "Photo is on the fridge.",
+        "first",
+        "{{date:-414}}",
+        "day",
+        "private",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-403 minutes'))",
+      "params": [
+        "perf-mp-036",
+        "perf-ms-032",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-416 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-416 minutes'))",
+      "params": [
+        "perf-ms-033",
+        "Adopted the goldfish",
+        "pet",
+        "{{date:-427}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-416 minutes'))",
+      "params": [
+        "perf-mp-037",
+        "perf-ms-033",
+        "perf-person-05",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-429 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-429 minutes'))",
+      "params": [
+        "perf-ms-034",
+        "Perfect attendance award",
+        "school",
+        "{{date:-433}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-429 minutes'))",
+      "params": [
+        "perf-mp-038",
+        "perf-ms-034",
+        "perf-person-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-442 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-442 minutes'))",
+      "params": [
+        "perf-ms-035",
+        "Caught a fish",
+        "So proud.",
+        "other",
+        "{{date:-450}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-442 minutes'))",
+      "params": [
+        "perf-mp-039",
+        "perf-ms-035",
+        "perf-person-01",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-455 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-455 minutes'))",
+      "params": [
+        "perf-ms-036",
+        "Built the treehouse",
+        "home",
+        "{{date:-460}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-455 minutes'))",
+      "params": [
+        "perf-mp-040",
+        "perf-ms-036",
+        "perf-person-03",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-455 minutes'))",
+      "params": [
+        "perf-mp-041",
+        "perf-ms-036",
+        "perf-person-04",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-468 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-468 minutes'))",
+      "params": [
+        "perf-ms-037",
+        "First time cooking dinner",
+        "We were all in the kitchen when it happened.",
+        "first",
+        "{{date:-472}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-468 minutes'))",
+      "params": [
+        "perf-mp-042",
+        "perf-ms-037",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, date('now','-486 days','start of month'), ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-481 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-481 minutes'))",
+      "params": [
+        "perf-ms-038",
+        "Camping at the lake",
+        "Took three tries, then no stopping.",
+        "travel",
+        "month",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-481 minutes'))",
+      "params": [
+        "perf-mp-043",
+        "perf-ms-038",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-481 minutes'))",
+      "params": [
+        "perf-mp-044",
+        "perf-ms-038",
+        "perf-person-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-494 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-494 minutes'))",
+      "params": [
+        "perf-ms-039",
+        "Cast came off",
+        "Grandma cried on the video call.",
+        "health",
+        "{{date:-502}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-494 minutes'))",
+      "params": [
+        "perf-mp-045",
+        "perf-ms-039",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-507 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-507 minutes'))",
+      "params": [
+        "perf-ms-040",
+        "First day without training wheels",
+        "Wouldn't stop talking about it for a week.",
+        "first",
+        "{{date:-511}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-507 minutes'))",
+      "params": [
+        "perf-mp-046",
+        "perf-ms-040",
+        "perf-person-02",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, date('now','-531 days','start of year'), ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-520 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-520 minutes'))",
+      "params": [
+        "perf-ms-041",
+        "Brought Biscuit home",
+        "Photo is on the fridge.",
+        "pet",
+        "year",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-520 minutes'))",
+      "params": [
+        "perf-mp-047",
+        "perf-ms-041",
+        "perf-person-05",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-533 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-533 minutes'))",
+      "params": [
+        "perf-ms-042",
+        "Science fair ribbon",
+        "school",
+        "{{date:-544}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-533 minutes'))",
+      "params": [
+        "perf-mp-048",
+        "perf-ms-042",
+        "perf-person-01",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-546 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-546 minutes'))",
+      "params": [
+        "perf-ms-043",
+        "Rode the big roller coaster",
+        "other",
+        "{{date:-550}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-546 minutes'))",
+      "params": [
+        "perf-mp-049",
+        "perf-ms-043",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-559 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-559 minutes'))",
+      "params": [
+        "perf-ms-044",
+        "Allergy tests all clear",
+        "So proud.",
+        "health",
+        "{{date:-567}}",
+        "day",
+        "private",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-559 minutes'))",
+      "params": [
+        "perf-mp-050",
+        "perf-ms-044",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-572 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-572 minutes'))",
+      "params": [
+        "perf-ms-045",
+        "First lost tooth",
+        "first",
+        "{{date:-577}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-572 minutes'))",
+      "params": [
+        "perf-mp-051",
+        "perf-ms-045",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-585 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-585 minutes'))",
+      "params": [
+        "perf-ms-046",
+        "First plane ride",
+        "We were all in the kitchen when it happened.",
+        "travel",
+        "{{date:-589}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-585 minutes'))",
+      "params": [
+        "perf-mp-052",
+        "perf-ms-046",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-585 minutes'))",
+      "params": [
+        "perf-mp-053",
+        "perf-ms-046",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-598 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-598 minutes'))",
+      "params": [
+        "perf-ms-047",
+        "Report card to be proud of",
+        "Took three tries, then no stopping.",
+        "school",
+        "{{date:-603}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-598 minutes'))",
+      "params": [
+        "perf-mp-054",
+        "perf-ms-047",
+        "perf-person-01",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-611 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-611 minutes'))",
+      "params": [
+        "perf-ms-048",
+        "Family talent show",
+        "Grandma cried on the video call.",
+        "other",
+        "{{date:-619}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-611 minutes'))",
+      "params": [
+        "perf-mp-055",
+        "perf-ms-048",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-624 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-624 minutes'))",
+      "params": [
+        "perf-ms-049",
+        "Planted the apple tree",
+        "Wouldn't stop talking about it for a week.",
+        "home",
+        "{{date:-628}}",
+        "day",
+        "everyone",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-637 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-637 minutes'))",
+      "params": [
+        "perf-ms-050",
+        "First camping trip",
+        "Photo is on the fridge.",
+        "first",
+        "{{date:-648}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-637 minutes'))",
+      "params": [
+        "perf-mp-056",
+        "perf-ms-050",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-650 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-650 minutes'))",
+      "params": [
+        "perf-ms-051",
+        "First train ride",
+        "travel",
+        "{{date:-661}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-650 minutes'))",
+      "params": [
+        "perf-mp-057",
+        "perf-ms-051",
+        "perf-person-06",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-650 minutes'))",
+      "params": [
+        "perf-mp-058",
+        "perf-ms-051",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, date('now','-667 days','start of month'), ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-663 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-663 minutes'))",
+      "params": [
+        "perf-ms-052",
+        "Braces on",
+        "health",
+        "month",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-663 minutes'))",
+      "params": [
+        "perf-mp-059",
+        "perf-ms-052",
+        "perf-person-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-676 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-676 minutes'))",
+      "params": [
+        "perf-ms-053",
+        "First sleepover",
+        "So proud.",
+        "first",
+        "{{date:-684}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-676 minutes'))",
+      "params": [
+        "perf-mp-060",
+        "perf-ms-053",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-689 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-689 minutes'))",
+      "params": [
+        "perf-ms-054",
+        "Biscuit graduated puppy class",
+        "pet",
+        "{{date:-694}}",
+        "day",
+        "everyone",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-689 minutes'))",
+      "params": [
+        "perf-mp-061",
+        "perf-ms-054",
+        "perf-person-05",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-702 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-702 minutes'))",
+      "params": [
+        "perf-ms-055",
+        "Spelling bee finalist",
+        "We were all in the kitchen when it happened.",
+        "school",
+        "{{date:-706}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-702 minutes'))",
+      "params": [
+        "perf-mp-062",
+        "perf-ms-055",
+        "perf-person-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-715 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-715 minutes'))",
+      "params": [
+        "perf-ms-056",
+        "Baked a cake alone",
+        "Took three tries, then no stopping.",
+        "other",
+        "{{date:-720}}",
+        "day",
+        "private",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-715 minutes'))",
+      "params": [
+        "perf-mp-063",
+        "perf-ms-056",
+        "perf-person-01",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-728 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-728 minutes'))",
+      "params": [
+        "perf-ms-057",
+        "Quit the pacifier",
+        "Grandma cried on the video call.",
+        "health",
+        "{{date:-736}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-728 minutes'))",
+      "params": [
+        "perf-mp-064",
+        "perf-ms-057",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-741 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-741 minutes'))",
+      "params": [
+        "perf-ms-058",
+        "First solo walk to school",
+        "Wouldn't stop talking about it for a week.",
+        "first",
+        "{{date:-745}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-741 minutes'))",
+      "params": [
+        "perf-mp-065",
+        "perf-ms-058",
+        "perf-person-02",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-754 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-754 minutes'))",
+      "params": [
+        "perf-ms-059",
+        "Road trip to the coast",
+        "Photo is on the fridge.",
+        "travel",
+        "{{date:-765}}",
+        "day",
+        "everyone",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-754 minutes'))",
+      "params": [
+        "perf-mp-066",
+        "perf-ms-059",
+        "perf-person-06",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-754 minutes'))",
+      "params": [
+        "perf-mp-067",
+        "perf-ms-059",
+        "perf-person-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestones (id, title, category, occurred_date, date_precision, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-767 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-767 minutes'))",
+      "params": [
+        "perf-ms-060",
+        "Joined the chess club",
+        "school",
+        "{{date:-778}}",
+        "day",
+        "everyone",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-190 days','-767 minutes'))",
+      "params": [
+        "perf-mp-068",
+        "perf-ms-060",
+        "perf-person-01",
+        "{{me}}"
+      ]
+    }
+  ]
+}

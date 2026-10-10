@@ -35,7 +35,8 @@
   },
   "storage": "db",
   "preload": {
-    "people": {"sql": "SELECT * FROM app_milestones__people ORDER BY created_at"}
+    "people": {"sql": "SELECT * FROM app_milestones__people ORDER BY created_at"},
+    "milestones": {"sql": "SELECT * FROM app_milestones__milestones ORDER BY occurred_date DESC, created_at DESC, id DESC LIMIT 101"}
   },
   "db_plaintext_columns": [
     "date_precision"

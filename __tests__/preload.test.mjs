@@ -23,6 +23,14 @@ describe("manifest.preload mirrors the app's first-render reads", () => {
     }
   });
 
+  it("preloads exactly the first timeline page the app asks for", () => {
+    // The app writes the limit out (a bound LIMIT cannot be preloaded), so
+    // nothing but this ties it to the page size the pager assumes.
+    const pageSize = Number(/const TIMELINE_PAGE_SIZE = (\d+);/.exec(html)?.[1]);
+    expect(pageSize).toBeGreaterThan(0);
+    expect(manifest.preload.milestones.sql.endsWith(` LIMIT ${pageSize + 1}`)).toBe(true);
+  });
+
   it("stays within the hub's caps and reads only this app's tables", () => {
     expect(Object.keys(manifest.preload).length).toBeLessThanOrEqual(6);
     for (const [name, { sql, params = [] }] of Object.entries(manifest.preload)) {

@@ -345,9 +345,11 @@ async function fetchMilestonePage(cursor = null) {
       [cursor.occurred_date, cursor.occurred_date, cursor.created_at,
        cursor.occurred_date, cursor.created_at, cursor.id, TIMELINE_PAGE_SIZE + 1],
     )
+    // The first page is declared in manifest.preload, which matches on the exact
+    // text and cannot carry a bound LIMIT — so the limit is written out here. It
+    // must stay TIMELINE_PAGE_SIZE + 1 (__tests__/preload.test.mjs checks).
     : await db(
-      "SELECT * FROM app_milestones__milestones ORDER BY occurred_date DESC, created_at DESC, id DESC LIMIT ?",
-      [TIMELINE_PAGE_SIZE + 1],
+      "SELECT * FROM app_milestones__milestones ORDER BY occurred_date DESC, created_at DESC, id DESC LIMIT 101",
     );
   return timelinePageFromDescending(result.rows ?? [], TIMELINE_PAGE_SIZE);
 }
