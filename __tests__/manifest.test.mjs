@@ -93,6 +93,9 @@ describe("manifest.json", () => {
       parent_table: "milestones",
       fk_column: "milestone_id",
       writer_column: "written_by",
+      // Lets whoever supervises the milestone detach a person someone else
+      // attached; without it only the member who wrote the row could.
+      adults_bypass: true,
       max_rows: 20000,
     });
   });

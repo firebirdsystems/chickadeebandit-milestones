@@ -1,0 +1,19 @@
+-- Small copies of a milestone's photos, for the tiles on the timeline.
+--
+-- A JSON object mapping a photo's file id (one of the ids in `file_ids`) to the
+-- file id of its small copy: {"<photo id>": "<small copy id>"}. A photo with no
+-- small copy has no entry, and the timeline draws the photo itself. Rows from
+-- before this column hold '{}' and draw every photo that way.
+--
+-- Deliberately NOT declared in delete_file_list_columns or
+-- update_file_list_columns. A small copy belongs to its photo: when a photo's
+-- id leaves `file_ids` (the milestone is deleted, or an edit removes the
+-- photo), the hub deletes the photo and every file made from it. So the map
+-- needs no reclaim of its own, and a stale entry is harmless — the map is only
+-- ever looked up by an id that is still in `file_ids`.
+--
+-- Encrypted at rest like `file_ids`, and never compared in SQL. The '{}'
+-- default is written outside the codec and lands as plaintext, which is safe
+-- for the same reason '[]' is there: the codec passes through a value that is
+-- not one of its envelopes.
+ALTER TABLE app_milestones__milestones ADD COLUMN photo_thumbs TEXT NOT NULL DEFAULT '{}';

@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest";
 import {
-  canonicalDate, formatOccurred, ageAt, canEdit, canDelete,
+  canonicalDate, formatOccurred, ageAt, canEdit, canDelete, canArchive, supervisesRecords,
   activePeople, archivedPeople, normalizeSelectedPersonId,
   linksByMilestone, personIdsFor, isVisibleMilestone, visibleMilestonesFor,
-  filterByPerson, attachmentDelta, blockedRemovals, attachablePeople,
+  filterByPerson, attachmentDelta, blockedRemovals, supervisesAttachments, attachablePeople,
   chunk, attachmentBatchPlan,
   peopleOnMilestone, describePeople, unsavedFileIds,
   resolvePerson, sortTimeline, latestTimelinePage,
   timelinePageFromDescending, mergeTimelineRows, onThisDay,
   searchableFields, categoryGlyph, todayStr,
+  parsePhotoThumbs, tilePhotoId, photoThumbsFor,
 } from "../src/logic.js";
 
 const ADULT = { id: "a1", name: "Alex", role: "adult" };
@@ -125,6 +126,61 @@ describe("canEdit / canDelete mirror the row policy", () => {
   });
   it("lets an adult delete", () => {
     expect(canDelete(mine, ADULT)).toBe(true);
+  });
+  it("refuses a missing row or a signed-out visitor", () => {
+    expect(canDelete(null, ADULT)).toBe(false);
+    expect(canDelete(mine, null)).toBe(false);
+  });
+});
+
+describe("gates in a shared space", () => {
+  const me = { ...ADULT };
+  const own    = { created_by: me.id };
+  const theirs = { created_by: "someone-else" };
+  const participant = { tenantKind: "shared_space", spaceKind: "general", isAdmin: false };
+  const steward     = { tenantKind: "shared_space", spaceKind: "general", isAdmin: true };
+  const coparent    = { tenantKind: "shared_space", spaceKind: "coparenting", isAdmin: true };
+
+  it("supervising records is every adult at home and the steward alone in a space", () => {
+    expect(supervisesRecords(ADULT)).toBe(true);
+    expect(supervisesRecords(CHILD)).toBe(false);
+    expect(supervisesRecords(ADULT, { tenantKind: "household", isAdmin: false })).toBe(true);
+    expect(supervisesRecords(ADULT, participant)).toBe(false);
+    expect(supervisesRecords(ADULT, steward)).toBe(true);
+    // Unlike attachments, a co-parenting space's steward still supervises.
+    expect(supervisesRecords(ADULT, coparent)).toBe(true);
+  });
+
+  it("a participant adult edits, removes and archives only what they added", () => {
+    expect(canEdit(own, me, participant)).toBe(true);
+    expect(canEdit(theirs, me, participant)).toBe(false);
+    expect(canDelete(own, me, participant)).toBe(true);
+    expect(canDelete(theirs, me, participant)).toBe(false);
+    expect(canArchive(own, me, participant)).toBe(true);
+    expect(canArchive(theirs, me, participant)).toBe(false);
+  });
+
+  it("the steward corrects, removes and archives anyone's", () => {
+    for (const tenant of [steward, coparent]) {
+      expect(canEdit(theirs, me, tenant)).toBe(true);
+      expect(canDelete(theirs, me, tenant)).toBe(true);
+      expect(canArchive(theirs, me, tenant)).toBe(true);
+    }
+  });
+
+  it("a child in a space edits their own but never removes or archives", () => {
+    const kidOwn = { created_by: CHILD.id };
+    expect(canEdit(kidOwn, CHILD, participant)).toBe(true);
+    expect(canDelete(kidOwn, CHILD, participant)).toBe(false);
+    expect(canArchive(kidOwn, CHILD, participant)).toBe(false);
+  });
+});
+
+describe("canArchive at home", () => {
+  it("is any adult, and never a child, even for someone they added", () => {
+    expect(canArchive({ created_by: "x" }, ADULT)).toBe(true);
+    expect(canArchive({ created_by: CHILD.id }, CHILD)).toBe(false);
+    expect(canArchive(null, ADULT)).toBe(false);
   });
 });
 
@@ -360,6 +416,31 @@ describe("blockedRemovals", () => {
     // matches nothing instead of failing, so this is pre-flighted.
     expect(blockedRemovals([mine, theirs], CHILD).map((l) => l.id)).toEqual(["l2"]);
   });
+
+  it("holds a participant adult in a shared space to the ones they wrote", () => {
+    const participant = { tenantKind: "shared_space", spaceKind: "general", isAdmin: false };
+    expect(blockedRemovals([mine, theirs], ADULT, participant).map((l) => l.id)).toEqual(
+      [mine, theirs].filter((l) => l.written_by !== ADULT.id).map((l) => l.id),
+    );
+  });
+
+  it("lets a shared space's steward remove anyone's", () => {
+    expect(blockedRemovals([mine, theirs], ADULT, { tenantKind: "shared_space", spaceKind: "general", isAdmin: true })).toEqual([]);
+  });
+});
+
+describe("supervisesAttachments", () => {
+  it("is every adult in a household, which is the default", () => {
+    expect(supervisesAttachments(ADULT)).toBe(true);
+    expect(supervisesAttachments(CHILD)).toBe(false);
+    expect(supervisesAttachments(CHILD, { tenantKind: "household", isAdmin: true })).toBe(false);
+  });
+
+  it("is only the steward in a shared space, and nobody in a co-parenting one", () => {
+    expect(supervisesAttachments(ADULT, { tenantKind: "shared_space", spaceKind: "general", isAdmin: false })).toBe(false);
+    expect(supervisesAttachments(ADULT, { tenantKind: "shared_space", spaceKind: "general", isAdmin: true })).toBe(true);
+    expect(supervisesAttachments(ADULT, { tenantKind: "shared_space", spaceKind: "coparenting", isAdmin: true })).toBe(false);
+  });
 });
 
 describe("peopleOnMilestone / describePeople", () => {
@@ -408,6 +489,59 @@ describe("attachment lifecycle", () => {
     ])).toEqual(["uploaded"]);
   });
 
+});
+
+describe("photo small copies", () => {
+  it("reads the stored map as text or as an object", () => {
+    expect(parsePhotoThumbs('{"photo-1":"thumb-1"}')).toEqual({ "photo-1": "thumb-1" });
+    expect(parsePhotoThumbs({ "photo-1": "thumb-1" })).toEqual({ "photo-1": "thumb-1" });
+  });
+
+  it("reads a malformed map as no small copies", () => {
+    expect(parsePhotoThumbs(undefined)).toEqual({});
+    expect(parsePhotoThumbs(null)).toEqual({});
+    expect(parsePhotoThumbs("not json")).toEqual({});
+    expect(parsePhotoThumbs('["thumb-1"]')).toEqual({});
+    expect(parsePhotoThumbs('"thumb-1"')).toEqual({});
+    expect(parsePhotoThumbs(7)).toEqual({});
+  });
+
+  it("drops entries whose value is not a file id string", () => {
+    expect(parsePhotoThumbs('{"photo-1":"thumb-1","photo-2":7,"photo-3":null,"photo-4":"","photo-5":{"id":"x"}}'))
+      .toEqual({ "photo-1": "thumb-1" });
+  });
+
+  it("draws the small copy when the photo has one, else the photo", () => {
+    const thumbs = { "photo-1": "thumb-1" };
+    expect(tilePhotoId("photo-1", thumbs)).toBe("thumb-1");
+    expect(tilePhotoId("photo-2", thumbs)).toBe("photo-2");
+    expect(tilePhotoId("constructor", {})).toBe("constructor");
+    expect(tilePhotoId("photo-1", undefined)).toBe("photo-1");
+  });
+
+  it("draws a milestone saved before the column from its photos", () => {
+    const thumbs = parsePhotoThumbs("{}");
+    expect(["photo-1", "photo-2"].map((id) => tilePhotoId(id, thumbs))).toEqual(["photo-1", "photo-2"]);
+  });
+
+  it("stores an entry only for a photo that kept a small copy", () => {
+    expect(photoThumbsFor([
+      { id: "photo-1", thumbnailId: "thumb-1", isNew: true },
+      { id: "photo-2", isNew: true },
+      { id: "photo-3", thumbnailId: undefined, isNew: false },
+    ])).toEqual({ "photo-1": "thumb-1" });
+    expect(photoThumbsFor([])).toEqual({});
+    expect(photoThumbsFor(undefined)).toEqual({});
+  });
+
+  it("drops a removed photo's entry and keeps the others through an edit", () => {
+    const stored = parsePhotoThumbs('{"photo-1":"thumb-1","photo-2":"thumb-2"}');
+    // The edit form seeds from the saved row, then the member removes photo-1.
+    const form = ["photo-1", "photo-2"]
+      .map((id) => ({ id, thumbnailId: stored[id], isNew: false }))
+      .filter((f) => f.id !== "photo-1");
+    expect(photoThumbsFor(form)).toEqual({ "photo-2": "thumb-2" });
+  });
 });
 
 describe("resolvePerson", () => {

@@ -95,6 +95,7 @@
     .entry-note { margin-top: 5px; white-space: pre-wrap; }
     .age { font-weight: 700; color: var(--text); }
     .photos { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .photos a { display: block; line-height: 0; }
     .photos img { width: 84px; height: 84px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
 
     .banner {
@@ -153,13 +154,14 @@ import {
 } from "/hub-sdk.js";
 import {
   CATEGORIES, categoryGlyph, canonicalDate, formatOccurred,
-  canEdit as _canEdit, canDelete as _canDelete, activePeople, archivedPeople,
+  canEdit as _canEdit, canDelete as _canDelete, canArchive as _canArchive, activePeople, archivedPeople,
   normalizeSelectedPersonId, visibleMilestonesFor, filterByPerson,
   linksByMilestone, personIdsFor, attachmentDelta, blockedRemovals,
   peopleOnMilestone, describePeople,
   attachablePeople, attachmentBatchPlan, chunk, unsavedFileIds, resolvePerson,
   sortTimeline, latestTimelinePage, timelinePageFromDescending, mergeTimelineRows,
   onThisDay, searchableFields, todayStr, canShareMilestone,
+  parsePhotoThumbs, tilePhotoId, photoThumbsFor,
 } from "./logic.js";
 import { createShareUi, createOverlayView } from "./share.js";
 // searchMatch comes from the SDK, not from logic.js: shared.js carries a
@@ -174,6 +176,9 @@ const FILES      = window.__FILES_URL ?? "";
 const APP_ID     = window.__APP_ID ?? "milestones";
 const EVENTS_URL = window.__EVENTS_URL ?? "/api/events";
 const ME         = window.__CURRENT_MEMBER ?? null;
+// Where the app is running, for the gates that differ between a household and
+// a shared space (see logic.js supervisesAttachments).
+const TENANT = { tenantKind: window.__TENANT_KIND ?? "household", spaceKind: window.__SPACE_KIND ?? null, isAdmin: window.__IS_ADMIN === true };
 
 const files = createFilesHelper(FILES);
 const TIMELINE_PAGE_SIZE = 100;
@@ -239,14 +244,17 @@ let searchQ = "";
 let timelineLimit = TIMELINE_PAGE_SIZE;
 let error = "";
 let modalEl = null;
-let pendingFiles = [];   // { id, url, isNew } uploaded or already saved for the open form
+let pendingFiles = [];   // { id, url, thumbnailId, isNew } uploaded or already saved for the open form
 let uploadSession = 0;   // invalidates uploads that finish after their modal closes
 let uploadsInFlight = 0;
 
 function nowIso() { return new Date().toISOString(); }
-function canEdit(row) { return _canEdit(row, me); }
-function canDelete(row) { return _canDelete(row, me); }
-function canArchive(row) { return Boolean(row) && canDelete(row); }
+function canEdit(row) { return _canEdit(row, me, TENANT); }
+function canDelete(row) { return _canDelete(row, me, TENANT); }
+function canArchive(row) { return _canArchive(row, me, TENANT); }
+// What to say when a write is not this member's to make: at home that is a
+// child, in a shared space anyone but the steward acting on another's row.
+function notYours(atHome, inSpace) { return TENANT.tenantKind === "household" ? atHome : inSpace; }
 function personById(id) { return people.find((s) => s.id === id) ?? null; }
 function personInfo(id) { return resolvePerson(personById(id), members); }
 function attachedTo(m) { return peopleOnMilestone(m, linkIndex, people, members); }
@@ -427,13 +435,13 @@ async function loadData() {
     ];
     milestones = [
       { id: "demo-m1", title: "First steps", note: "Down the hallway, straight at the dog.",
-        category: "first", occurred_date: "2020-03-17", date_precision: "day", file_ids: "[]",
+        category: "first", occurred_date: "2020-03-17", date_precision: "day", file_ids: "[]", photo_thumbs: "{}",
         visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
       { id: "demo-m2", title: "First day of school", note: "",
-        category: "school", occurred_date: "2024-09-03", date_precision: "day", file_ids: "[]",
+        category: "school", occurred_date: "2024-09-03", date_precision: "day", file_ids: "[]", photo_thumbs: "{}",
         visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
       { id: "demo-m3", title: "We got the keys", note: "A household milestone — about nobody in particular.",
-        category: "home", occurred_date: "2018-06-21", date_precision: "day", file_ids: "[]",
+        category: "home", occurred_date: "2018-06-21", date_precision: "day", file_ids: "[]", photo_thumbs: "{}",
         visibility: "everyone", created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
     ];
     links = [
@@ -547,7 +555,7 @@ async function savePerson(fields, existingId) {
 async function archivePerson(id) {
   const row = personById(id);
   if (!row) return;
-  if (!canArchive(row)) { error = "Only adults can archive someone."; return render(); }
+  if (!canArchive(row)) { error = notYours("Only adults can archive someone.", "In a shared space, only the steward can archive someone another member added."); return render(); }
   const ok = await hubConfirm({
     message: `Archive ${resolvePerson(row, members).name || "this person"}?`,
     description: "Milestones about them are kept, but hidden from the app and its anniversary surfaces. Household milestones stay.",
@@ -576,7 +584,7 @@ async function archivePerson(id) {
 async function restorePerson(id) {
   const row = personById(id);
   if (!row || !row.archived_at) return;
-  if (!canArchive(row)) { error = "Only adults can restore someone."; return render(); }
+  if (!canArchive(row)) { error = notYours("Only adults can restore someone.", "In a shared space, only the steward can restore someone another member added."); return render(); }
   try {
     const now = nowIso();
     const result = await db(
@@ -602,18 +610,24 @@ async function deleteFilesBestEffort(ids) {
 /**
  * Refuses an attachment change the caller's row policy would silently drop.
  *
- * `milestone_people` is governed by inherit_visibility, which lets a non-adult
- * delete only rows whose `written_by` is their own — while `canEdit` lets the
- * author of a milestone go on editing it after an adult has changed who it is
- * about. The two rules disagree in exactly that case, and the DELETE would
+ * `milestone_people` lets anyone who does not supervise attachments (see
+ * logic.js supervisesAttachments) delete only rows whose `written_by` is their
+ * own — while `canEdit` lets the author of a milestone go on editing it after
+ * a supervisor has changed who it is about. The two rules disagree in exactly that case, and the DELETE would
  * match nothing rather than fail. Checked BEFORE the milestone UPDATE so a
  * refusal leaves nothing half-written.
  */
 function assertAttachmentsWritable(currentLinks, personIds) {
-  const blocked = blockedRemovals(attachmentDelta(currentLinks, personIds).remove, me);
+  const blocked = blockedRemovals(attachmentDelta(currentLinks, personIds).remove, me, TENANT);
   if (!blocked.length) return;
   const names = blocked.map((l) => personInfo(l.person_id).name || "someone").join(", ");
-  throw new Error(`An adult chose who this milestone is about (${names}). Ask an adult to change that.`);
+  // In a co-parenting space nobody overrules the member who attached someone
+  // (logic.js supervisesAttachments), so the steward is not an answer there.
+  throw new Error(TENANT.tenantKind === "household"
+    ? `An adult chose who this milestone is about (${names}). Ask an adult to change that.`
+    : TENANT.spaceKind === "coparenting"
+      ? `Someone else chose who this milestone is about (${names}). Ask them to change that.`
+      : `Someone else chose who this milestone is about (${names}). Ask them or the steward to change that.`);
 }
 
 /**
@@ -801,6 +815,10 @@ async function publishRecorded(row, personIds) {
 async function saveMilestone(fields, personIds, existingId, onCommitted = () => {}, announce = false) {
   const now = nowIso();
   const fileIds = JSON.stringify(pendingFiles.map((f) => f.id));
+  // Always written with file_ids, so an edit that removes a photo drops its
+  // small copy's entry in the same statement. The small copy is not declared
+  // as a file column: the hub deletes it with the photo it was made from.
+  const photoThumbs = JSON.stringify(photoThumbsFor(pendingFiles));
 
   if (existingId) {
     const existing = milestones.find((m) => m.id === existingId);
@@ -815,10 +833,10 @@ async function saveMilestone(fields, personIds, existingId, onCommitted = () => 
     const result = await db(
       `UPDATE app_milestones__milestones
          SET title = ?, note = ?, category = ?,
-             occurred_date = ?, date_precision = ?, file_ids = ?, updated_at = ?
+             occurred_date = ?, date_precision = ?, file_ids = ?, photo_thumbs = ?, updated_at = ?
        WHERE id = ? AND updated_at = ?`,
       [fields.title, fields.note, fields.category,
-       fields.occurred_date, fields.date_precision, fileIds, now, existingId, existing.updated_at],
+       fields.occurred_date, fields.date_precision, fileIds, photoThumbs, now, existingId, existing.updated_at],
     );
     requireSingleChange(result, "This milestone changed in another session. Refresh before saving your changes.");
     // The saved row references these photos now, so they are no longer this
@@ -832,7 +850,7 @@ async function saveMilestone(fields, personIds, existingId, onCommitted = () => 
     // every attempt from here on.
     const i = milestones.findIndex((m) => m.id === existingId);
     if (i !== -1) {
-      milestones[i] = { ...milestones[i], ...fields, file_ids: fileIds, updated_at: now };
+      milestones[i] = { ...milestones[i], ...fields, file_ids: fileIds, photo_thumbs: photoThumbs, updated_at: now };
       syncAnniversaryRow(milestones[i]);
     }
 
@@ -847,15 +865,15 @@ async function saveMilestone(fields, personIds, existingId, onCommitted = () => 
 
   await requireActivePeople(personIds);
   const row = {
-    id: crypto.randomUUID(), ...fields, file_ids: fileIds, visibility: "everyone",
+    id: crypto.randomUUID(), ...fields, file_ids: fileIds, photo_thumbs: photoThumbs, visibility: "everyone",
     created_by: me.id, created_at: now, updated_at: now,
   };
   await db(
     `INSERT INTO app_milestones__milestones
-       (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, title, note, category, occurred_date, date_precision, file_ids, photo_thumbs, visibility, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [row.id, row.title, row.note, row.category, row.occurred_date,
-     row.date_precision, row.file_ids, row.visibility, row.created_by, row.created_at, row.updated_at],
+     row.date_precision, row.file_ids, row.photo_thumbs, row.visibility, row.created_by, row.created_at, row.updated_at],
   );
   milestones = [...milestones, row];
   syncAnniversaryRow(row);
@@ -871,7 +889,7 @@ async function saveMilestone(fields, personIds, existingId, onCommitted = () => 
 async function deleteMilestone(id) {
   const row = milestones.find((m) => m.id === id);
   if (!row) return;
-  if (!canDelete(row)) { error = "Only adults can remove a milestone."; return render(); }
+  if (!canDelete(row)) { error = notYours("Only adults can remove a milestone.", "In a shared space, only the steward can remove another member's milestone."); return render(); }
   const ok = await hubConfirm({
     message: "Remove this milestone?",
     description: "A milestone is meant to be permanent. This cannot be undone.",
@@ -1108,8 +1126,9 @@ function syncPrecisionFields() {
 function renderPendingPhotos() {
   const box = modalEl?.querySelector("#m-photos");
   if (!box) return;
+  const thumbs = photoThumbsFor(pendingFiles);
   box.innerHTML = pendingFiles.map((f) =>
-    `<img src="${esc(f.url)}" alt="" /><button type="button" class="btn-quiet-danger" data-drop-file="${esc(f.id)}">Remove</button>`
+    `<img src="${esc(files.url(tilePhotoId(f.id, thumbs)))}" alt="" /><button type="button" class="btn-quiet-danger" data-drop-file="${esc(f.id)}">Remove</button>`
   ).join("");
 }
 
@@ -1129,6 +1148,7 @@ function visibleMilestones() {
 function renderEntry(m, isLast) {
   const who = attachedTo(m);
   const photos = parseFileIds(m);
+  const thumbs = parsePhotoThumbs(m.photo_thumbs);
   // Each person carries their own age: two siblings share a first day of school
   // and were not the same age on it, so one shared age would be wrong for both.
   const whoText = describePeople(who);
@@ -1156,7 +1176,9 @@ function renderEntry(m, isLast) {
           </div>
         </div>
         ${m.note ? `<div class="entry-note">${esc(m.note)}</div>` : ""}
-        ${photos.length ? `<div class="photos">${photos.map((id) => `<img src="${esc(files.url(id))}" alt="" loading="lazy" />`).join("")}</div>` : ""}
+        ${photos.length ? `<div class="photos">${photos.map((id) =>
+          // The tile draws the small copy; the link around it opens the photo itself.
+          `<a href="${esc(files.url(id))}" target="_blank" rel="noreferrer" data-testid="milestone-photo"><img src="${esc(files.url(tilePhotoId(id, thumbs)))}" alt="" loading="lazy" /></a>`).join("")}</div>` : ""}
       </div>
     </div>
   `;
@@ -1250,7 +1272,7 @@ function render() {
     </div>
     ${archived.some(canArchive) ? `
       <details class="archived-subjects">
-        <summary>Archived (${archived.length})</summary>
+        <summary>Archived (${archived.filter(canArchive).length})</summary>
         <div class="archived-subject-list">
           ${archived.filter(canArchive).map((s) => {
             const info = resolvePerson(s, members);
@@ -1336,7 +1358,10 @@ document.addEventListener("click", async (event) => {
     const row = milestones.find((m) => m.id === btn.getAttribute("data-edit-milestone"));
     if (!row) return;
     openModal(milestoneForm(row, personIdsFor(linkIndex, row.id)));
-    pendingFiles = parseFileIds(row).map((id) => ({ id, url: files.url(id), isNew: false }));
+    // Seeded with each saved photo's small copy, so a save that keeps the
+    // photo writes its entry back rather than dropping it.
+    const thumbs = parsePhotoThumbs(row.photo_thumbs);
+    pendingFiles = parseFileIds(row).map((id) => ({ id, url: files.url(id), thumbnailId: thumbs[id], isNew: false }));
     syncPrecisionFields();
     renderPendingPhotos();
     return;
@@ -1369,7 +1394,9 @@ document.addEventListener("change", async (event) => {
     try {
       // Never record a file id before the upload resolves — a 413/415/507 here
       // would otherwise leave a milestone pointing at a photo that never landed.
-      const uploaded = await files.upload(file);
+      // `thumbnail` keeps a small copy for the timeline; `uploaded.thumbnailId`
+      // is missing when none was kept, and the tile then draws the photo.
+      const uploaded = await files.upload(file, { thumbnail: true });
       if (session !== uploadSession || !modalEl?.contains(input)) {
         await deleteFilesBestEffort([uploaded.id]);
         break;

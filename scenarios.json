@@ -821,6 +821,28 @@
           "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "m-1", "category": "school" }] }
         }
       ]
+    },
+    {
+      "name": "an adult may detach a person a child attached to a milestone",
+      "members": {"grown": "adult", "kid": "child"},
+      "steps": [
+        {"action": "seedRaw", "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES (?, 'First word', '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')", "params": ["m-kid2", "{{kid}}"]},
+        {"action": "seedRaw", "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES (?, '', 'Rowan', '2019-04-02', '', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')", "params": ["p-r2", "{{grown}}"]},
+        {"action": "seedRaw", "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, '2026-08-02T00:00:00Z')", "params": ["l-kid2", "m-kid2", "p-r2", "{{kid}}"]},
+        {"action": "db", "as": "grown", "sql": "DELETE FROM app_milestones__milestone_people WHERE id = ? RETURNING id", "params": ["l-kid2"], "expect": {"status": 200, "rowCount": 1}}
+      ]
+    },
+    {
+      "name": "in a shared space only the steward may detach a person another member attached; a participant adult cannot",
+      "context": "shared_space",
+      "members": {"a": "adult", "b": "adult", "steward": "admin"},
+      "steps": [
+        {"action": "seedRaw", "sql": "INSERT INTO app_milestones__milestones (id, title, note, category, occurred_date, date_precision, file_ids, visibility, created_by, created_at, updated_at) VALUES (?, 'First word', '', 'first', '2024-03-17', 'day', '[]', 'everyone', ?, '2026-08-02T00:00:00Z', '2026-08-02T00:00:00Z')", "params": ["m-b", "{{b}}"]},
+        {"action": "seedRaw", "sql": "INSERT INTO app_milestones__people (id, member_id, name, birth_date, icon, visibility, archived_at, created_by, created_at, updated_at) VALUES (?, '', 'Rowan', '2019-04-02', '', 'everyone', NULL, ?, '2026-08-01T00:00:00Z', '2026-08-01T00:00:00Z')", "params": ["p-b", "{{b}}"]},
+        {"action": "seedRaw", "sql": "INSERT INTO app_milestones__milestone_people (id, milestone_id, person_id, written_by, created_at) VALUES (?, ?, ?, ?, '2026-08-02T00:00:00Z')", "params": ["l-b", "m-b", "p-b", "{{b}}"]},
+        {"action": "db", "as": "a", "sql": "DELETE FROM app_milestones__milestone_people WHERE id = ? RETURNING id", "params": ["l-b"], "expect": {"status": 200, "rowCount": 0}},
+        {"action": "db", "as": "steward", "sql": "DELETE FROM app_milestones__milestone_people WHERE id = ? RETURNING id", "params": ["l-b"], "expect": {"status": 200, "rowCount": 1}}
+      ]
     }
   ]
 }

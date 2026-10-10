@@ -96,6 +96,7 @@
       "parent_table": "milestones",
       "fk_column": "milestone_id",
       "writer_column": "written_by",
+      "adults_bypass": true,
       "max_rows": 20000
     }
   },

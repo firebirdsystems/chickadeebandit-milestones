@@ -135,16 +135,26 @@ export function ageAt(birthDate, occurredDate, precision = "day") {
 }
 
 /**
- * Whether the current member may edit this milestone.
- *
- * Mirrors the `milestones` row policy exactly (owner_or_visibility, with
- * neither write_owner_only nor write_visibility_scoped set): the author may
- * edit their own, and adults may correct anyone's. A client gate that is more
- * generous than this just renders buttons the hub answers with a 403.
+ * Whether a member may write a person or milestone someone else added. Mirrors
+ * the hub's rule for `people` and `milestones` (owner_or_visibility, with
+ * neither write_owner_only nor write_visibility_scoped set): every adult in a
+ * household, and only the steward in a shared space of any kind. An adult who
+ * merely takes part in a space has their statement narrowed to their own rows,
+ * so it would change nothing.
  */
-export function canEdit(row, me) {
+export function supervisesRecords(me, { tenantKind = "household", isAdmin = false } = {}) {
+  return tenantKind === "household" ? isAdult(me) : isAdmin === true;
+}
+
+/**
+ * Whether the current member may edit this person or milestone: its author
+ * may edit their own, and whoever supervises records may correct anyone's. A
+ * client gate that is more generous than the row policy just renders buttons
+ * that change nothing.
+ */
+export function canEdit(row, me, tenant) {
   if (!row || !me) return false;
-  return isAdult(me) || row.created_by === me.id;
+  return supervisesRecords(me, tenant) || row.created_by === me.id;
 }
 
 /**
@@ -152,10 +162,21 @@ export function canEdit(row, me) {
  *
  * Deliberately narrower than `canEdit`: the row policy sets
  * `delete_adult_only: true`, because a milestone is meant to outlive the
- * impulse to remove it. A child fixing their own mistaken entry edits it.
+ * impulse to remove it. A child fixing their own mistaken entry edits it; an
+ * adult who does not supervise records may remove only their own.
  */
-export function canDelete(_row, me) {
-  return isAdult(me);
+export function canDelete(row, me, tenant) {
+  if (!row || !me) return false;
+  return supervisesRecords(me, tenant) || (isAdult(me) && row.created_by === me.id);
+}
+
+/**
+ * Whether the current member may archive or restore this person. `archived_at`
+ * is writable by adults only (column_write_acls), and the row must be one the
+ * member may edit.
+ */
+export function canArchive(row, me, tenant) {
+  return isAdult(me) && canEdit(row, me, tenant);
 }
 
 /**
@@ -313,18 +334,29 @@ export function attachmentBatchPlan(add, remove, maxParams, columnsPerRow) {
 }
 
 /**
+ * Whether a member may detach a person someone else attached. Mirrors the
+ * hub's rule for `milestone_people` (inherit_visibility with adults_bypass):
+ * every adult in a household, the steward in a shared space, and nobody in a
+ * co-parenting space, where one parent never overrules the other.
+ */
+export function supervisesAttachments(me, { tenantKind = "household", spaceKind = null, isAdmin = false } = {}) {
+  if (tenantKind === "household") return isAdult(me);
+  return spaceKind !== "coparenting" && isAdmin === true;
+}
+
+/**
  * Attachment rows the caller's row policy will refuse to delete.
  *
- * `milestone_people` is an inherit_visibility table, so a non-adult may only
- * delete rows whose `written_by` is their own — while `canEdit` lets the author
- * of a milestone edit it whatever an adult has since done to its attachments.
- * The two rules disagree in exactly one case: an adult changed who a child's
- * milestone is about, and the child then edits it. Without this check the
+ * Anyone who does not supervise attachments may only delete rows whose
+ * `written_by` is their own — while `canEdit` lets the author of a milestone
+ * edit it whatever a supervisor has since done to its attachments. The two
+ * rules disagree in exactly one case: a supervisor changed who someone's
+ * milestone is about, and its author then edits it. Without this check the
  * DELETE would silently match nothing and the milestone would keep a person the
  * form had just removed, so the caller pre-flights and refuses instead.
  */
-export function blockedRemovals(removeRows, me) {
-  if (isAdult(me)) return [];
+export function blockedRemovals(removeRows, me, tenant) {
+  if (supervisesAttachments(me, tenant)) return [];
   return (removeRows ?? []).filter((l) => l.written_by !== me?.id);
 }
 
@@ -386,6 +418,53 @@ export function describePeople(entries) {
 /** Newly uploaded files that are not durable until their form saves. */
 export function unsavedFileIds(files) {
   return (files ?? []).filter((f) => f.isNew).map((f) => f.id).filter(Boolean);
+}
+
+/**
+ * A milestone's `photo_thumbs`: photo file id → the file id of its small copy.
+ *
+ * Takes the stored JSON text or an already-parsed object. Anything else — a
+ * missing column, broken JSON, a list — reads as no small copies at all, and
+ * an entry whose value is not a file id string is dropped, so the timeline
+ * falls back to the photo rather than drawing a broken tile.
+ */
+export function parsePhotoThumbs(raw) {
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try { parsed = JSON.parse(raw); } catch { return {}; }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const thumbs = {};
+  for (const [photoId, thumbId] of Object.entries(parsed)) {
+    if (typeof thumbId === "string" && thumbId) thumbs[photoId] = thumbId;
+  }
+  return thumbs;
+}
+
+/**
+ * The file a tile draws: the photo's small copy when it has one, else the photo.
+ *
+ * The fallback is the ordinary case, not an error: milestones saved before
+ * small copies existed have none, and neither does a photo that was already
+ * small or in a format the browser could not draw.
+ */
+export function tilePhotoId(photoId, thumbs) {
+  return (Object.hasOwn(thumbs ?? {}, photoId) && thumbs[photoId]) || photoId;
+}
+
+/**
+ * The map to store beside `file_ids`, built from the form's photos
+ * ({ id, thumbnailId }).
+ *
+ * Only photos still in the form get an entry, so removing a photo drops its
+ * small copy's id in the same write that drops the photo's.
+ */
+export function photoThumbsFor(files) {
+  const thumbs = {};
+  for (const f of files ?? []) {
+    if (f?.id && typeof f.thumbnailId === "string" && f.thumbnailId) thumbs[f.id] = f.thumbnailId;
+  }
+  return thumbs;
 }
 
 /** Timeline order: oldest first, so a life reads top to bottom. */
