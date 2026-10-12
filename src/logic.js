@@ -43,6 +43,11 @@ export function todayStr(now = new Date(), timeZone = "") {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+/** An error whose message was written for the reader, so the page may show it as is. */
+export function userError(message) {
+  return Object.assign(new Error(message), { forUser: true });
+}
+
 /**
  * Normalizes a partial date to the canonical full yyyy-mm-dd the DB stores.
  *
@@ -51,22 +56,22 @@ export function todayStr(now = new Date(), timeZone = "") {
  * on a row whose real date is only known to the month.
  */
 export function canonicalDate(year, month = 1, day = 1, precision = "day") {
-  if (!PRECISIONS.includes(precision)) throw new Error("Choose how precisely the date is known.");
+  if (!PRECISIONS.includes(precision)) throw userError("Choose how precisely the date is known.");
   if (!Number.isInteger(year) || year < 1900 || year > 2200) {
-    throw new Error("Enter a year from 1900 through 2200.");
+    throw userError("Enter a year from 1900 through 2200.");
   }
 
   const y = String(year).padStart(4, "0");
   if (precision === "year")  return `${y}-01-01`;
 
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new Error("Choose a valid month.");
+    throw userError("Choose a valid month.");
   }
   if (precision === "month") return `${y}-${String(month).padStart(2, "0")}-01`;
 
-  if (!Number.isInteger(day) || day < 1) throw new Error("Choose a valid day.");
+  if (!Number.isInteger(day) || day < 1) throw userError("Choose a valid day.");
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  if (day > lastDay) throw new Error("That day does not exist in the selected month.");
+  if (day > lastDay) throw userError("That day does not exist in the selected month.");
   return `${y}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 

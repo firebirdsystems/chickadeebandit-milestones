@@ -163,7 +163,7 @@ import {
   attachablePeople, attachmentBatchPlan, chunk, unsavedFileIds, resolvePerson,
   sortTimeline, latestTimelinePage, timelinePageFromDescending, mergeTimelineRows,
   onThisDay, searchableFields, todayStr, canShareMilestone,
-  parsePhotoThumbs, tilePhotoId, photoThumbsFor,
+  parsePhotoThumbs, tilePhotoId, photoThumbsFor, userError,
 } from "./logic.js";
 import { createShareUi, createOverlayView } from "./share.js";
 // searchMatch comes from the SDK, not from logic.js: shared.js carries a
@@ -277,6 +277,11 @@ async function db(sql, params = []) {
   if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || `Database request failed: ${res.status}`);
   return json;
 }
+// A failed write shows one fixed line for the action. Only wording this app
+// wrote for the reader (thrown through userError) is shown as is; the hub's
+// own error text goes to the console.
+function failText(e, line) { if (!e?.forUser) console.error(e); return e?.forUser ? e.message : line; }
+
 
 /**
  * Several statements as ONE atomic D1 transaction — all of them commit, or none.
@@ -504,7 +509,7 @@ async function refresh() {
 
 // --- Writes ------------------------------------------------------------------
 function requireSingleChange(result, conflictMessage) {
-  if (DB && result.changed !== 1) throw new Error(conflictMessage);
+  if (DB && result.changed !== 1) throw userError(conflictMessage);
 }
 
 async function requireActivePeople(personIds) {
@@ -512,7 +517,7 @@ async function requireActivePeople(personIds) {
   if (!DB) {
     for (const id of personIds) {
       const person = personById(id);
-      if (!person || person.archived_at) throw new Error("Someone you chose is no longer active. Refresh and choose again.");
+      if (!person || person.archived_at) throw userError("Someone you chose is no longer active. Refresh and choose again.");
     }
     return;
   }
@@ -527,7 +532,7 @@ async function requireActivePeople(personIds) {
     found += (result.rows ?? []).length;
   }
   if (found !== personIds.length) {
-    throw new Error("Someone you chose was archived or changed in another session. Refresh and choose again.");
+    throw userError("Someone you chose was archived or changed in another session. Refresh and choose again.");
   }
 }
 
@@ -535,7 +540,7 @@ async function savePerson(fields, existingId) {
   const now = nowIso();
   if (existingId) {
     const existing = personById(existingId);
-    if (!canEdit(existing)) throw new Error("You cannot edit this person.");
+    if (!canEdit(existing)) throw userError("You cannot edit this person.");
     const result = await db(
       "UPDATE app_milestones__people SET member_id = ?, name = ?, birth_date = ?, icon = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
       [fields.member_id, fields.name, fields.birth_date, fields.icon, now, existingId, existing.updated_at],
@@ -584,7 +589,7 @@ async function archivePerson(id) {
     closeModal();
     render();
   } catch (e) {
-    error = e.message;
+    error = failText(e, "Couldn’t archive the person — try again.");
     render();
   }
 }
@@ -606,7 +611,7 @@ async function restorePerson(id) {
     error = "";
     render();
   } catch (e) {
-    error = e.message;
+    error = failText(e, "Couldn’t restore the person — try again.");
     render();
   }
 }
@@ -631,7 +636,7 @@ function assertAttachmentsWritable(currentLinks, personIds) {
   const names = blocked.map((l) => personInfo(l.person_id).name || "someone").join(", ");
   // In a co-parenting space nobody overrules the member who attached someone
   // (logic.js supervisesAttachments), so the steward is not an answer there.
-  throw new Error(TENANT.tenantKind === "household"
+  throw userError(TENANT.tenantKind === "household"
     ? `An adult chose who this milestone is about (${names}). Ask an adult to change that.`
     : TENANT.spaceKind === "coparenting"
       ? `Someone else chose who this milestone is about (${names}). Ask them to change that.`
@@ -725,7 +730,7 @@ async function runExpecting(statements, conflictMessage) {
   const results = await dbBatch(statements.map(({ sql, params }) => ({ sql, params })));
   if (!DB) return;
   statements.forEach((statement, i) => {
-    if (results[i]?.changed !== statement.expectChanged) throw new Error(conflictMessage);
+    if (results[i]?.changed !== statement.expectChanged) throw userError(conflictMessage);
   });
 }
 
@@ -744,7 +749,7 @@ async function writeAttachments(milestoneId, personIds, currentLinks) {
       // Whatever committed before this stays committed and has already been
       // folded in. The retry re-reads the attachments and recomputes the delta,
       // so it picks up where this left off rather than repeating it.
-      throw new Error(`The milestone was saved, but who it is about was not: ${e.message} Press save again to finish.`);
+      throw userError(`The milestone was saved, but who it is about was not${e?.forUser ? `: ${e.message}` : (console.error(e), ".")} Press save again to finish.`);
     }
     applyAttachmentsLocally(batch);
   }
@@ -816,7 +821,10 @@ async function publishRecorded(row, personIds) {
     }
     return "";
   } catch (e) {
-    return e.message;
+    // Truthy, so the caller says the event was not delivered; the reason
+    // itself is the hub's and stays in the console.
+    console.error(e);
+    return "The milestone itself is kept.";
   }
 }
 
@@ -830,7 +838,7 @@ async function saveMilestone(fields, personIds, existingId, onCommitted = () => 
 
   if (existingId) {
     const existing = milestones.find((m) => m.id === existingId);
-    if (!canEdit(existing)) throw new Error("You cannot edit this milestone.");
+    if (!canEdit(existing)) throw userError("You cannot edit this milestone.");
     const current = await currentLinksFor(existingId);
     // Only the NEWLY ticked people have to be active. An archived person who
     // was already attached stays attached — see attachablePeople.
@@ -922,7 +930,7 @@ async function deleteMilestone(id) {
     // commit and rechecks references before deleting shared bytes.
     render();
   } catch (e) {
-    error = e.message;
+    error = failText(e, "Couldn’t remove the milestone — try again.");
     render();
   }
 }
@@ -1326,7 +1334,7 @@ document.addEventListener("click", async (event) => {
       } while (hasEarlierMilestones && visibleMilestones().length === visibleBefore);
       timelineLimit += TIMELINE_PAGE_SIZE;
     } catch (e) {
-      error = e.message;
+      error = failText(e, "Couldn’t load earlier milestones.");
     }
     render();
     return;
@@ -1414,7 +1422,11 @@ document.addEventListener("change", async (event) => {
       renderPendingPhotos();
     } catch (e) {
       if (session === uploadSession) {
-        await hubAlert("That photo could not be uploaded.", { description: e.message });
+        // A refusal (too large, wrong type, storage full) says why in the hub's
+        // words; any other failure has no reason worth showing.
+        const refused = (e?.status >= 400 && e?.status < 500) || e?.status === 507;
+        if (!refused) console.error(e);
+        await hubAlert("That photo could not be uploaded.", refused && e.message ? { description: e.message } : undefined);
       }
     } finally {
       if (session === uploadSession) uploadsInFlight = Math.max(0, uploadsInFlight - 1);
@@ -1434,7 +1446,7 @@ document.addEventListener("input", async (event) => {
   try {
     await loadAllMilestonesForSearch();
   } catch (e) {
-    error = e.message;
+    error = failText(e, "Couldn’t search earlier milestones.");
   } finally {
     searchLoading = false;
     render();
@@ -1464,7 +1476,7 @@ document.addEventListener("submit", async (event) => {
         form.querySelector("#p-details").dataset.forceOpen = "1";
         syncPersonDetails();
         f.name.focus();
-        throw new Error("A name is required.");
+        throw userError("A name is required.");
       }
       const id = await savePerson({
         name,
@@ -1475,8 +1487,8 @@ document.addEventListener("submit", async (event) => {
       if (!form.dataset.id) selectedPersonId = id;
     } else {
       const title = f.title.value.trim();
-      if (!title) { f.title.focus(); throw new Error("Say what happened."); }
-      if (uploadsInFlight > 0) throw new Error("Wait for the selected photos to finish uploading.");
+      if (!title) { f.title.focus(); throw userError("Say what happened."); }
+      if (uploadsInFlight > 0) throw userError("Wait for the selected photos to finish uploading.");
       const precision = f.date_precision.value;
       const result = await saveMilestone({
         title,
@@ -1509,10 +1521,10 @@ document.addEventListener("submit", async (event) => {
       });
     }
   } catch (e) {
-    error = e.message;
+    error = failText(e, "Couldn’t save — try again.");
     if (submit) { submit.disabled = false; submit.textContent = label; }
     render();
-    await hubAlert("That change could not be saved.", { description: e.message });
+    await hubAlert("That change could not be saved.", e?.forUser ? { description: e.message } : undefined);
   }
 });
 
