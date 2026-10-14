@@ -165,7 +165,7 @@ import {
   onThisDay, searchableFields, todayStr, canShareMilestone,
   parsePhotoThumbs, tilePhotoId, photoThumbsFor, userError, outcomeUnknown, failureLine, uploadFailureLine,
 } from "./logic.js";
-import { createShareUi, createOverlayView } from "./share.js";
+import { createShareUi, createOverlayView } from "/hub-share-ui.js";
 // searchMatch comes from the SDK, not from logic.js: shared.js carries a
 // simplified mirror so the pure logic stays testable in node, but the browser
 // must use the hub's real matcher (diacritic folding, token-AND) so in-app
