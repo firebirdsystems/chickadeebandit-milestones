@@ -84,7 +84,8 @@ describe("manifest.json", () => {
   });
 
   it("durably reclaims photos removed by an update", () => {
-    expect(manifest.update_file_list_columns).toEqual({ milestones: ["file_ids"] });
+    // `file_columns` covers both the DELETE and the UPDATE reclaim lanes.
+    expect(manifest.file_columns).toEqual({ milestones: { list_columns: ["file_ids"] } });
   });
 
   it("governs the join table by its milestone, not by its own visibility", () => {
